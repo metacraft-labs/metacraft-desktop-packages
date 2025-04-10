@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="The official RPM repository for Metacraft Labs, CodeTracer and related projects.">
+		<meta name="author" content="Metacraft Labs Ltd.">
+		<link rel="icon" type="image/png" href="./favicon.png">
+		<title>Metacraft Labs RPM repository</title>
+
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Ubuntu&display=swap" rel="stylesheet" type="text/css">
+
+		<style>
+			body {
+				background-color: #E8EEF2;
+				color: #37293A;
+			}
+			h1, h2, h3, h4, h5, h6, p, a, li {
+				font-family: Ubuntu, sans-serif;
+			}
+
+			a {
+				text-decoration: none;
+				color: #1d84b5;
+			}
+
+			.inline-code {
+				display: inline;
+				border: 1px solid #37293A;
+				border-radius: 0.25rem;
+				background-color: #37293A;
+				color: #e8eef2;
+				padding-left: 0.25rem;
+				padding-right: 0.25rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Welcome to the Metacraft Labs RPM repository</h1>
+		<p>This repository is used for hosting all Metacraft Labs packages for applications such as <a href="https://codetracer.com">CodeTracer</a> and its tracers.</p>
+		<p>To use this repository use the following configuration to <code class="inline-code">/etc/yum.repos.d/metacraft-rpms.repo</code> :</p>
+		<pre class="sourceCode toml"><code class="sourceCode toml">[ude-rpms]
+name=MetacraftRPM
+baseurl=https://rpms.codetracer.com/
+enabled=1
+gpgcheck=0</code></pre>
+		<h2>Available packages:</h2>
+		<ul>
+			<li>codetracer - Provides <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
+		</ul>
+		<footer>
+			<p>A Metacraft Labs project. Copyright &#169; Metacraft Labs Ltd. 2025</p>
+		</footer>
+	</body>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark-reasonable.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+	<script>hljs.highlightAll();</script>
+</html>

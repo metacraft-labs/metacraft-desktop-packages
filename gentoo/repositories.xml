@@ -1,0 +1,11 @@
+<repositories encoding="unicode" version="1.1">
+  <repo priority="10" quality="experimental">
+    <name>metacraft-overlay</name>
+    <description>Metacraft Labs' Gentoo Overlay</description>
+    <owner>
+      <email>support@codetracer.com</email>
+      <name>Metacraft Labs Ltd.</name>
+    </owner>
+    <source type="git">https://github.com/metacraft-labs/metacraft-overlay.git</source>
+  </repo>
+</repositories>

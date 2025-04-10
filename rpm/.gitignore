@@ -1,0 +1,5 @@
+repodata/
+*.tar.*
+*.rpm
+BUILD/*/
+*.AppImage
