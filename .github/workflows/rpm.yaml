@@ -1,0 +1,60 @@
+name: Deploy RPM
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+  
+permissions:
+  contents: read
+  id-token: write
+  
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+  
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container: fedora:rawhide
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: "Import GPG key for signing commits"
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
+          git_config_global: true
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+      - name: Install createrepo_c
+        run: |
+          dnf install -y rpmdevtools createrepo_c curl awscli2
+          cd rpm || exit
+          
+          echo "----------"
+          pwd
+          echo "----------"
+          ls -a
+          echo "----------"
+          
+          ln -s "$(pwd)/" ~/rpmbuild
+          rpmdev-setuptree
+          createrepo_c --update .
+          for spec in SPECS/*.spec; do
+            spectool -g -R "${spec}"
+          done
+      - name: Installing codetracer
+        run: |
+          dnf builddep -y SPECS/codetracer.spec
+          rpmbuild -ba SPECS/codetracer.spec
+          dnf install -y $(find ~/rpmbuild/RPMS/x86_64/ -name "codetracer-*.rpm" ! -name "*-debuginfo.rpm" ! -name "*-debugsource.rpm" | grep -v "debug"  | sort | tail -n 1)
+      - name: Copy RPMs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_RPM_BUCKET_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_RPM_ACCESS_KEY }}
+        run: |
+          createrepo_c --update .
+          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp "$(pwd)/*" s3://${{ vars.CODETRACER_RPM_BUCKET_TOKEN }}/
