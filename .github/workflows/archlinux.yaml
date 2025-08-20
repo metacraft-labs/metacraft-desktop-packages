@@ -27,7 +27,7 @@ jobs:
           sudo -E -u builder env HOME=/home/builder git config --global init.defaultBranch main
           
           sudo -E -u builder mkdir -p /home/builder/.ssh
-          echo "${{ secrets.ACTIONS_AUR_SSH_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
+          echo "${{ secrets.CODETRACER_AUR_SSH_PRIVATE_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
           sudo -E -u builder chmod 600 /home/builder/.ssh/id_rsa
           sudo -E -u builder ssh-keyscan -H aur.archlinux.org | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
           
