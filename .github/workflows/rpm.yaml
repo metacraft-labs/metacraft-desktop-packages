@@ -61,4 +61,4 @@ jobs:
         run: |
           cd rpm || exit
           createrepo_c --update .
-          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp "$(pwd)/*" s3://${{ vars.CODETRACER_RPM_BUCKET_TOKEN }}/
+          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp "$(pwd)/" s3://${{ vars.CODETRACER_RPM_BUCKET_TOKEN }}/ --recursive
