@@ -14,7 +14,7 @@ jobs:
       - name: Update repositories and install essentials
         run: |
           pacman -Syyu --noconfirm
-          pacman -S --noconfirm git base-devel sudo xorg-xrandr openssh
+          pacman -S --noconfirm git base-devel sudo xorg-xrandr openssh devtools
           pacman --noconfirm --ask=4 -S iptables-nft
 
           useradd -m builder
