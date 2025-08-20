@@ -1,0 +1,40 @@
+name: Arch Linux
+on:
+  push:
+    branches: [main]
+jobs:
+  arch:
+    runs-on: ubuntu-latest
+    container: archlinux
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update repositories and install essentials
+        run: |
+          pacman -Syyu --noconfirm
+          pacman -S --noconfirm git base-devel sudo xorg-xrandr openssh
+          pacman --noconfirm --ask=4 -S iptables-nft
+
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder $(pwd)
+      - name: Configure git
+        run: |
+          sudo -E -u builder env HOME=/home/builder git config --global user.name "github-actions"
+          sudo -E -u builder env HOME=/home/builder git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          sudo -E -u builder env HOME=/home/builder git config --global init.defaultBranch main
+          
+          sudo -E -u builder mkdir -p /home/builder/.ssh
+          echo "${{ secrets.ACTIONS_AUR_SSH_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
+          sudo -E -u builder chmod 600 /home/builder/.ssh/id_rsa
+          sudo -E -u builder ssh-keyscan -H aur.archlinux.org | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
+          
+          # Start a new SSH agent for builder
+          sudo -E -u builder bash -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
+
+# sudo -E -u builder env HOME=/home/builder chmod -R 600 /home/builder/.ssh/*
+      - name: Compile
+        run: |
+          sudo -E -u builder env HOME=/home/builder bash -c "cd arch/ && bash run.sh deploy"
