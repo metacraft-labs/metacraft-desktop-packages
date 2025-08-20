@@ -11,15 +11,7 @@ compile_file() {
   echo -e "\x1b[32mCompiling: $1\x1b[0m"
   echo -e "\x1b[32m--------------------------------\x1b[0m"
 
-  sed -i "s/sha256sums=(.*/sha256sums=()/g" PKGBUILD
-  sha=$(makepkg -g)
-  REAL_SHA=""
-  for hash in "$(printf "${sha}")"; do
-    REAL_SHA="${REAL_SHA}${hash}"
-  done
-	    
-  sed -i 's/sha256sums=()/${REAL_SHA}/g' PKGBUILD
- 
+  updpkgsums || exit
   makepkg -si --noconfirm || exit
   makepkg --printsrcinfo > .SRCINFO || exit
 
