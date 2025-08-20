@@ -3,7 +3,7 @@
 %global __brp_check_rpaths %{nil}
 
 Name:		codetracer
-Version:	25.03.1
+Version:	25.07.1
 Release:	1
 Summary:	A user-friendly time-traveling debugger for a variety of programming languages
 License:	AGPL-3
