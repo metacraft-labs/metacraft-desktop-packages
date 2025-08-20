@@ -50,6 +50,7 @@ jobs:
           done
       - name: Installing codetracer
         run: |
+          cd rpm || exit
           dnf builddep -y SPECS/codetracer.spec
           rpmbuild -ba SPECS/codetracer.spec
           dnf install -y $(find ~/rpmbuild/RPMS/x86_64/ -name "codetracer-*.rpm" ! -name "*-debuginfo.rpm" ! -name "*-debugsource.rpm" | grep -v "debug"  | sort | tail -n 1)
@@ -58,5 +59,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_RPM_BUCKET_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_RPM_ACCESS_KEY }}
         run: |
+          cd rpm || exit
           createrepo_c --update .
           aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp "$(pwd)/*" s3://${{ vars.CODETRACER_RPM_BUCKET_TOKEN }}/
