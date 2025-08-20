@@ -15,10 +15,10 @@ compile_file() {
   sha=$(makepkg -g)
   REAL_SHA=""
   for hash in "${sha}"; do
-    REAL_SHA="${REAL_SHA}\"${sha}\" "
+    REAL_SHA="${REAL_SHA}'${sha}' "
   done
 	    
-  sed -i "s/sha256sums=()/sha256=(${REAL_SHA})/g" PKGBUILD
+  sed -i "s/sha256sums=()/sha256sums=(${REAL_SHA})/g" PKGBUILD
  
   makepkg -si --noconfirm || exit
   makepkg --printsrcinfo > .SRCINFO || exit
