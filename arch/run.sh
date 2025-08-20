@@ -14,7 +14,7 @@ compile_file() {
   sed -i "s/sha256sums=(.*/sha256sums=()/g" PKGBUILD
   sha=$(makepkg -g)
   REAL_SHA=""
-  for hash in "${sha}"; do
+  for hash in "$(printf ${sha})"; do
     REAL_SHA="${REAL_SHA}'${sha}' "
   done
 	    
