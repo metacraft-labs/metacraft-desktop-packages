@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Insatll git
-        run: "dnf install -y gpg git"
+        run: "dnf install -y gpg git rpm-sign"
         
       - name: "Import GPG key for signing commits"
         id: import-gpg
