@@ -28,7 +28,7 @@ jobs:
 
           cd gentoo || exit
           git init
-          git remote add origin https://github.com/metacraft-labs/metacraft-overlay
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
           git fetch origin
 
           git add . && git commit -m "Synchronise with metacraft-desktop-packages"
