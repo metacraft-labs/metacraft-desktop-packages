@@ -32,6 +32,6 @@ jobs:
           git fetch origin
 
           git add . && git commit -m "Synchronise with metacraft-desktop-packages"
-          git diff origin/main..main | git apply --cached
+          git diff main..origin/main | git apply --cached
           git commit -m "Synchronise with metacraft-desktop-packages"
           git push origin HEAD:main
