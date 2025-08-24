@@ -1,0 +1,84 @@
+name: Gentoo Desktop OpenRC AMD64
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gentoo-job:
+    runs-on: ubuntu-latest  # GitHub Actions host runner
+    container:
+      image: gentoo/stage3:desktop  # Pulls the Gentoo image from Docker Hub
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Synchronise repo and install essentials 
+        run: |
+          emerge --sync
+          emerge dev-vcs/git flaggie app-eselect/eselect-repository openssh sudo
+      - name: Recreate git repo structure
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$(realpath .)"
+          git init
+          git branch -m main
+          git remote add origin https://github.com/metacraft-labs/metacraft-overlay
+          git fetch --all
+          git reset --hard origin/main
+      - name: Update manifests
+        run: |
+          useradd -K MAIL_DIR=/dev/null -m builder
+          chown -R builder $(pwd)
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          sudo -E -u builder env HOME=/home/builder git config --global user.name "github-actions"
+          sudo -E -u builder env HOME=/home/builder git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          sudo -E -u builder env HOME=/home/builder git config --global init.defaultBranch main
+          sudo -E -u builder env HOME=/home/builder git config --global commit.gpgsign true
+          sudo -E -u builder env HOME=/home/builder git config --global tag.gpgsign true
+          sudo -E -u builder env HOME=/home/builder git config --global gpg.format ssh
+          
+          sudo -E -u builder mkdir -p /home/builder/.ssh
+          echo "${{ secrets.CODETRACER_AUR_SSH_PRIVATE_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
+          sudo -E -u builder chmod 600 /home/builder/.ssh/id_rsa
+          
+          sudo -E -u builder env HOME=/home/builder git config --global user.signingkey /home/builder/.ssh/id_rsa
+
+          sudo -E -u builder ssh-keyscan -H github.com | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
+          
+          # Start a new SSH agent for builder
+          sudo -E -u builder sh -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
+          
+          sudo -E -u builder git fetch --all
+          old="$(pwd)"
+          for manifest in $(find -iname "Manifest"); do
+          	man="$(realpath "${manifest}")"
+          	cd "$(dirname "${man}")"
+          	rm Manifest
+            ebuild *.ebuild clean digest
+          	cd "${old}"
+          done
+          chown -R builder $(pwd)
+          sudo -E -u builder git remote set-url origin git@github.com:metacraft-labs/metacraft-overlay
+          sudo -E -u builder sh -c "(git add . && git commit -m 'Update manifest' && git push origin HEAD:main) || echo 'Nothing to commit'"
+      - name: Sync and add repo   
+        run: |
+          eselect repository add metacraft-overlay git https://github.com/metacraft-labs/metacraft-overlay.git || exit
+          emerge --sync metacraft-overlay || exit
+      - name: Configure use flags
+        run: |
+          flaggie raft +lz4
+          flaggie xdelta +lzma
+          flaggie squashfs-tools +lzma
+          flaggie libcap +static-libs
+      - name: Install applications
+        run: |
+          emerge codetracer || exit
+        
+    
