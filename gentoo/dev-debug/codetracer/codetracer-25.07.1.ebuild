@@ -38,3 +38,4 @@ src_install() {
 	install -Dm644 "${WORKDIR}"/resources/Icon.iconset/icon_256x256.png "${ED}"/usr/share/icons/hicolor/256x256/apps/codetracer.png
 	install -Dm644 "${WORKDIR}"/resources/Icon.iconset/icon_512x512.png "${ED}"/usr/share/icons/hicolor/512x512/apps/codetracer.png
 }
+
