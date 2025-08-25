@@ -30,8 +30,10 @@ jobs:
           git init
           git remote add origin https://x-access-token:${{ secrets.CODETRACER_PUSH_GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
           git fetch origin
-
           git add . && git commit -m "Synchronise with metacraft-desktop-packages"
-          git diff main origin/main | git apply --cached
+
+          git checkout -b upstream origin/main
+          git checkout main -- .
+          
           git commit -m "Synchronise with metacraft-desktop-packages"
           git push origin HEAD:main
