@@ -23,7 +23,7 @@ jobs:
       - name: Synchronise repo and install essentials 
         run: |
           emerge --sync
-          emerge dev-vcs/git flaggie app-eselect/eselect-repository openssh sudo app-crypt/gnupg github-cli
+          emerge dev-vcs/git flaggie app-eselect/eselect-repository openssh sudo app-crypt/gnupg
       - name: Recreate git repo structure
         run: |
           git config --global user.name "github-actions[bot]"
@@ -31,18 +31,9 @@ jobs:
           git config --global --add safe.directory "$(realpath .)"
           git init
           git branch -m main
-          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
+          git remote add origin https://x-access-token:${{ secrets.CODETRACER_PUSH_GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
           git fetch --all
           git reset --hard origin/main
-      - name: "Import bot's GPG key for signing commits"
-        id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
-          git_config_global: true
-          git_user_signingkey: true
-          git_commit_gpgsign: true
       - name: Update manifests
         run: |
           useradd -K MAIL_DIR=/dev/null -m builder
@@ -51,9 +42,7 @@ jobs:
           sudo -E -u builder env HOME=/home/builder git config --local user.name "github-actions[bot]"
           sudo -E -u builder env HOME=/home/builder git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           sudo -E -u builder env HOME=/home/builder git config --local init.defaultBranch main
-          sudo -E -u builder env HOME=/home/builder git config --local commit.gpgsign true
-          sudo -E -u builder env HOME=/home/builder git config --local tag.gpgsign true
-                 
+
           sudo -E -u builder git fetch --all
           old="$(pwd)"
           for manifest in $(find -iname "Manifest"); do
@@ -64,7 +53,7 @@ jobs:
           	cd "${old}"
           done
           chown -R builder $(pwd)
-          sudo -E -u builder git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
+          sudo -E -u builder git remote set-url origin https://x-access-token:${{ secrets.CODETRACER_PUSH_GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
           sudo -E -u builder sh -c "(git add . && git commit -m 'Update manifest' && git push origin HEAD:main) || echo 'Nothing to commit'"
       - name: Sync and add repo   
         run: |

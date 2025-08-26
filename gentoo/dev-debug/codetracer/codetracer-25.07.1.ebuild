@@ -2,6 +2,8 @@
 
 EAPI="7"
 
+inherit xdg
+
 DESCRIPTION="A user-friendly time-traveling debugger for a varierty of programming languages"
 HOMEPAGE="https://github.com/metacraft-labs/codetracer"
 SRC_URI="$HOMEPAGE/releases/download/${PV}/resources.tar.xz -> resources.tar.xz
@@ -37,4 +39,12 @@ src_install() {
 	install -Dm644 "${WORKDIR}"/resources/Icon.iconset/icon_128x128.png "${ED}"/usr/share/icons/hicolor/128x128/apps/codetracer.png
 	install -Dm644 "${WORKDIR}"/resources/Icon.iconset/icon_256x256.png "${ED}"/usr/share/icons/hicolor/256x256/apps/codetracer.png
 	install -Dm644 "${WORKDIR}"/resources/Icon.iconset/icon_512x512.png "${ED}"/usr/share/icons/hicolor/512x512/apps/codetracer.png
+}
+
+pkg_postinst() {
+	xdg_icon_cache_update
+}
+
+pkg_postrm() {
+	xdg_icon_cache_update
 }

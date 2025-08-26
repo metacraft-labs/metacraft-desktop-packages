@@ -84,7 +84,7 @@ jobs:
       - name: Install essentials
         run: |
           sudo apt update && sudo apt install git gnupg ruby-dev build-essential reprepro
-          sudo gem -i fpm -f
+          sudo gem i fpm -f
       - id: install-aws-cli
         uses: unfor19/install-aws-cli-action@v1
         with:
