@@ -83,8 +83,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Install essentials
         run: |
-          sudo apt update && sudo apt install git gnupg awscli ruby-dev build-essential reprepro
+          sudo apt update && sudo apt install git gnupg ruby-dev build-essential reprepro
           sudo gem -i fpm -f
+      - id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@v1
+        with:
+          version: 2
+          verbose: false
+          arch: amd64
       - name: "Import GPG key for signing commits"
         id: import-gpg
         uses: crazy-max/ghaction-import-gpg@v6
@@ -102,7 +108,7 @@ jobs:
         run: |
           cd debian || exit
           aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp s3://${{ secrets.CODETRACER_RPM_BUCKET_TOKEN }}/RPMS/x86_64/${{ needs.rpms.outputs.file }} ${{ needs.rpms.outputs.file }}
-          fpm -s rpm -t deb --no-auto-depends -d "fuse" -d "libfuse2" -d "openssl" -d "xdg-desktop-portal" ${{ needs.rpm.outputs.file }}
+          fpm -s rpm -t deb --no-auto-depends -d "fuse" -d "libfuse2" -d "openssl" -d "xdg-desktop-portal" --maintainer "Metacraft Labs Ltd. <support@codetracer.com>" ${{ needs.rpm.outputs.file }}
 
           KEY_ID=$(gpg --list-secret-keys --keyid-format=long | awk '/^sec/{print $2}' | cut -d'/' -f2)
           sed -i "s/#SignWith:.*/SignWith: ${KEY_ID}/g" conf/distributions 
