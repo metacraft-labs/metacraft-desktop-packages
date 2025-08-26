@@ -1,4 +1,4 @@
-name: Deploy RPM
+name: Deploy RPM and DEBs
 on:
   push:
     branches: [ "main" ]
@@ -122,7 +122,7 @@ jobs:
       - name: Copy DEBs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_DEB_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY }}
         run: |
           cd debian || exit
           aws --endpoint-url=${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }} s3 cp "$(pwd)/" s3://${{ secrets.CODETRACER_DEB_BUCKET_TOKEN }}/ --recursive
