@@ -40,8 +40,14 @@
 	<body>
 		<h1>Welcome to the Metacraft Labs DEB repository</h1>
 		<p>This repository is used for hosting all Metacraft Labs packages for applications such as <a href="https://codetracer.com">CodeTracer</a>.</p>
-		<p>To use this repository add the following configuration to <code class="inline-code">/etc/apt/sources.list.d/metacraft-debs-stable.list</code> :</p>
-		<pre class="sourceCode toml"><code class="sourceCode toml">deb [arch=amd64] https://deb.codetracer.com/ stable main</code></pre>
+		
+		<p>To use this repository use the following configuration to <code class="inline-code">/etc/apt/sources.list.d/metacraft-debs.list</code> :</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">deb [arch=amd64] https://deb.codetracer.com &lt;stable&gt; main</code></pre>
+		
+		<p>After that, install our PGP key in apt by running the following command:</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">root # wget "https://deb.codetracer.com/keys/public.asc" &amp;&amp; mv public.asc /etc/apt/trusted.gpg.d/metacraft-debs.asc</code></pre>
+
+		<p>After adding the repository make sure to run <code class="inline-code">apt update</code>!</p>
 		<h2>Available packages:</h2>
 		<ul>
 			<li>codetracer - Provides <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
