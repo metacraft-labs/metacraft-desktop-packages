@@ -71,6 +71,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_RPM_ACCESS_KEY }}
         run: |
           cd rpm || exit
+          cp ../favicon.png .
           createrepo_c --update .
           gpg --detach-sign --armor repodata/repomd.xml
           aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp "$(pwd)/" s3://${{ secrets.CODETRACER_RPM_BUCKET_TOKEN }}/ --recursive
@@ -125,4 +126,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY }}
         run: |
           cd debian || exit
+          cp ../favicon.png .
           aws --endpoint-url=${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }} s3 cp "$(pwd)/" s3://${{ secrets.CODETRACER_DEB_BUCKET_TOKEN }}/ --recursive
