@@ -74,7 +74,7 @@ jobs:
           cp ../favicon.png .
           createrepo_c --update .
           gpg --detach-sign --armor repodata/repomd.xml
-          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp ./ s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/
+          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp ./ s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/ --recursive
   
   debs:
     runs-on: ubuntu-latest
@@ -127,4 +127,4 @@ jobs:
         run: |
           cd debian || exit
           cp ../favicon.png .
-          aws --endpoint-url=${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }} s3 cp ./ s3://${{ vars.DEB_CODETRACER_BUCKET_NAME }}/
+          aws --endpoint-url=${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }} s3 cp ./ s3://${{ vars.DEB_CODETRACER_BUCKET_NAME }}/ --recursive
