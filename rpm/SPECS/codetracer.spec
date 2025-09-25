@@ -3,7 +3,7 @@
 %global __brp_check_rpaths %{nil}
 
 Name:		codetracer
-Version:	25.09.1
+Version:	25.09.2
 Release:	1
 Summary:	A user-friendly time-traveling debugger for a variety of programming languages
 License:	AGPL-3
@@ -34,8 +34,11 @@ install -Dm644 resources/Icon.iconset/icon_512x512.png "%{buildroot}/%{_datadir}
 %{_datadir}/icons/hicolor
 
 %changelog
-* Sat Sep 20 2025 Metacraft Labs Ltd. <support@codetracer.com> - 25.09.01-1
-- Release 25.09.01
+* Thu Sep 25 2025 Metacraft Labs Ltd. <support@codetracer.com> - 25.09.2-1
+- Hotfix release 25.09.2
 
-* Thu Apr 10 2025 Metacraft Labs Ltd. <support@codetracer.com> - 25.03.01-1
+* Sat Sep 20 2025 Metacraft Labs Ltd. <support@codetracer.com> - 25.09.1-1
+- Release 25.09.1
+
+* Thu Apr 10 2025 Metacraft Labs Ltd. <support@codetracer.com> - 25.03.1-1
 - Initial RPM package
