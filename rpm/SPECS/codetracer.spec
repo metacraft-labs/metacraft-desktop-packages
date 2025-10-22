@@ -10,7 +10,7 @@ License:	AGPL-3
 URL:		https://codetracer.com
 Source0:	https://github.com/metacraft-labs/codetracer/releases/download/%version/resources.tar.xz
 Source1:	https://downloads.codetracer.com/CodeTracer-%version-amd64.AppImage
-Requires:	fuse, openssl, xdg-desktop-portal
+Requires:	fuse, fuse-libs, openssl, xdg-desktop-portal
 
 %description
 A user-friendly time-travelling debugger for a variety of programming languages
