@@ -26,13 +26,13 @@ jobs:
           sudo -E -u builder env HOME=/home/builder git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           sudo -E -u builder env HOME=/home/builder git config --global init.defaultBranch main
           
-          sudo -E -u builder mkdir -p /home/builder/.ssh
+          sudo -E -u builder env HOME=/home/builder mkdir -p /home/builder/.ssh
           echo "${{ secrets.CODETRACER_AUR_SSH_PRIVATE_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
-          sudo -E -u builder chmod 600 /home/builder/.ssh/id_rsa
-          sudo -E -u builder ssh-keyscan -H aur.archlinux.org | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
+          sudo -E -u builder env HOME=/home/builder chmod 600 /home/builder/.ssh/id_rsa
+          sudo -E -u builder env HOME=/home/builder ssh-keyscan -H aur.archlinux.org | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
           
           # Start a new SSH agent for builder
-          sudo -E -u builder bash -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
+          sudo -E -u builder env HOME=/home/builder bash -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
 
 # sudo -E -u builder env HOME=/home/builder chmod -R 600 /home/builder/.ssh/*
       - name: Compile
