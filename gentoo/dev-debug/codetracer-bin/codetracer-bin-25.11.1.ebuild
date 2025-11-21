@@ -1,6 +1,6 @@
 # Distributed under the terms of the MIT License
 
-EAPI="7"
+EAPI="8"
 
 inherit xdg
 
