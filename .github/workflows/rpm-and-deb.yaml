@@ -20,7 +20,7 @@ jobs:
       file: ${{ steps.rpmfile.outputs.file }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Insatll git
         run: "dnf install -y gpg git rpm-sign"
         
@@ -81,7 +81,7 @@ jobs:
     needs: [ "rpms" ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Install essentials
         run: |
           sudo apt update && sudo apt install git gnupg ruby-dev build-essential reprepro
