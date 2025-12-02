@@ -17,7 +17,7 @@ jobs:
       image: gentoo/stage3:desktop  # Pulls the Gentoo image from Docker Hub
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Synchronise repo and install essentials 
