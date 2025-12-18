@@ -37,3 +37,4 @@ compile_file() {
 export -f compile_file
 
 compile_file codetracer "$1"
+compile_file codetracer-rr-backend "$1"

@@ -1,0 +1,20 @@
+# Maintainer: Metacraft Labs Ltd. <support@codetracer.com>
+
+pkgname=codetracer-rr-backend
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="RR backend support for CodeTracer time-traveling debugger"
+url="https://codetracer.com"
+arch=(x86_64)
+license=("AGPL-3.0-only")
+depends=("fuse" "openssl")
+makedepends=()
+provides=("ct-rr-support")
+source=("https://downloads.codetracer.com/CodeTracer-RR-Backend-${pkgver}-amd64.AppImage")
+noextract=("CodeTracer-RR-Backend-${pkgver}-amd64.AppImage")
+sha256sums=('SKIP')
+options=(!strip)
+
+package() {
+	install -Dm755 "${srcdir}"/CodeTracer-RR-Backend-"${pkgver}"-amd64.AppImage "${pkgdir}"/usr/bin/ct-rr-support
+}
