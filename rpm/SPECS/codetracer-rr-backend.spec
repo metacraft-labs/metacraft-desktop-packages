@@ -9,7 +9,7 @@ Summary:	RR backend support for CodeTracer time-traveling debugger
 License:	Proprietary
 URL:		https://codetracer.com
 Source0:	https://downloads.codetracer.com/CodeTracer-RR-Backend-%version-amd64.AppImage
-Requires:	fuse, fuse-libs, openssl
+Requires:	fuse, fuse-libs, openssl, codetracer
 
 %description
 RR backend support for CodeTracer - enables recording and debugging of C, C++, Rust, Go and other compiled languages using the rr time-traveling debugger.

@@ -34,7 +34,6 @@ jobs:
           # Start a new SSH agent for builder
           sudo -E -u builder env HOME=/home/builder bash -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
 
-# sudo -E -u builder env HOME=/home/builder chmod -R 600 /home/builder/.ssh/*
       - name: Compile
         run: |
           sudo -E -u builder env HOME=/home/builder bash -c "cd arch/ && bash run.sh deploy"

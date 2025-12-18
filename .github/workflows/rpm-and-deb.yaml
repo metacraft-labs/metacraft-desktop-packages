@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:rawhide
     outputs:
-      file: ${{ steps.rpmfile.outputs.file }}
+      ctfile: ${{ steps.rpmfile.outputs.ctfile }}
+      rrfile: ${{ steps.rpmfile.outputs.rrfile }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -62,7 +63,14 @@ jobs:
           dnf builddep -y SPECS/codetracer.spec
           rpmbuild -ba SPECS/codetracer.spec
           RPM=$(find ~/rpmbuild/RPMS/x86_64/ -name "codetracer-*.rpm" ! -name "*-debuginfo.rpm" ! -name "*-debugsource.rpm" | grep -v "debug"  | sort | tail -n 1)
-          echo "file=$(basename $RPM)" >> $GITHUB_OUTPUT
+          echo "ctfile=$(basename $RPM)" >> $GITHUB_OUTPUT
+          rpm --addsign $RPM
+          dnf install -y $RPM
+
+          dnf builddep -y SPECS/codetracer-rr-backend.spec
+          rpmbuild -ba SPECS/codetracer-rr-backend.spec
+          RPM=$(find ~/rpmbuild/RPMS/x86_64/ -name "codetracer-rr-backend-*.rpm" ! -name "*-debuginfo.rpm" ! -name "*-debugsource.rpm" | grep -v "debug" | sort | tail -n 1)
+          echo "rrfile=$(basename $RPM)" >> $GITHUB_OUTPUT
           rpm --addsign $RPM
           dnf install -y $RPM
       - name: Copy RPMs
@@ -108,8 +116,12 @@ jobs:
         shell: bash
         run: |
           cd debian || exit
-          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/RPMS/x86_64/${{ needs.rpms.outputs.file }} ${{ needs.rpms.outputs.file }}
-          fpm -s rpm -t deb --no-auto-depends -d "fuse" -d "libfuse2" -d "openssl" -d "xdg-desktop-portal" --maintainer "Metacraft Labs Ltd. <support@codetracer.com>" ${{ needs.rpms.outputs.file }}
+
+          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/RPMS/x86_64/${{ needs.rpms.outputs.ctfile }} ${{ needs.rpms.outputs.ctfile }}
+          fpm -s rpm -t deb --no-auto-depends -d "fuse" -d "libfuse2" -d "openssl" -d "xdg-desktop-portal" --maintainer "Metacraft Labs Ltd. <support@codetracer.com>" ${{ needs.rpms.outputs.ctfile }}
+
+          aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKED_S3_URL }} s3 cp s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/RPMS/x86_64/${{ needs.rpms.outputs.rrfile }} ${{ needs.rpms.outputs.rrfile }}
+          fpm -s rpm -t deb --no-auto-depends -d "fuse" -d "libfuse2" -d "openssl" -d "codetracer" --maintainer "Metacraft Labs Ltd. <support@codetracer.com>" ${{ needs.rpms.outputs.rrfile }}
 
           KEY_ID=$(gpg --list-secret-keys --keyid-format=long | awk '/^sec/{print $2}' | cut -d'/' -f2)
           sed -i "s/#SignWith:.*/SignWith: ${KEY_ID}/g" conf/distributions 

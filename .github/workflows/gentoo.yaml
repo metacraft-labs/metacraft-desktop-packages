@@ -39,6 +39,9 @@ jobs:
           git checkout main -- .
 
           cd dev-debug/codetracer-bin/ && mv "$latest" latest && rm *.ebuild && mv latest "$latest" && cd ../../
+
+          latest=$(cd dev-debug/codetracer-rr-backend-bin/ && ls *.ebuild && cd ../../)
+          cd dev-debug/codetracer-rr-backend-bin/ && mv "$latest" latest && rm *.ebuild && mv latest "$latest" && cd ../../
           
           git add . && git commit -m "Synchronise with metacraft-desktop-packages" || echo "Nothing to commit"
           git push origin HEAD:main || echo "Nothing to push"

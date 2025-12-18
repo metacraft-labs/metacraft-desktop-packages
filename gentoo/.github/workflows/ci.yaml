@@ -67,4 +67,4 @@ jobs:
           flaggie libcap +static-libs
       - name: Install applications
         run: |
-          emerge codetracer-bin || exit
+          emerge codetracer-rr-backend-bin || exit
