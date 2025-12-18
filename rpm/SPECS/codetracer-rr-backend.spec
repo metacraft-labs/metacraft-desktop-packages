@@ -6,7 +6,7 @@ Name:		codetracer-rr-backend
 Version:	0.1.0
 Release:	1
 Summary:	RR backend support for CodeTracer time-traveling debugger
-License:	AGPL-3
+License:	Proprietary
 URL:		https://codetracer.com
 Source0:	https://downloads.codetracer.com/CodeTracer-RR-Backend-%version-amd64.AppImage
 Requires:	fuse, fuse-libs, openssl
