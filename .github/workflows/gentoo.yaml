@@ -5,7 +5,7 @@ on:
     
 jobs:
   gentoo:
-    runs-on: ubuntu-latest
+    runs-on: eph-linux-x64
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
