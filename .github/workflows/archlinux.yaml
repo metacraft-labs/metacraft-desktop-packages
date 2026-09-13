@@ -4,7 +4,7 @@ on:
     branches: [main]
 jobs:
   arch:
-    runs-on: eph-linux-x64
+    runs-on: [self-hosted, linux, x64]
     container: archlinux
     steps:
       - name: Checkout Repository

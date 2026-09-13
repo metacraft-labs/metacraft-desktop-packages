@@ -14,7 +14,7 @@ concurrency:
   
 jobs:
   rpms:
-    runs-on: eph-linux-x64
+    runs-on: [self-hosted, linux, x64]
     container: fedora:rawhide
     outputs:
       ctfile: ${{ steps.rpmfile.outputs.ctfile }}
@@ -85,7 +85,7 @@ jobs:
           aws --endpoint-url=${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }} s3 cp ./ s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/ --recursive
   
   debs:
-    runs-on: eph-linux-x64
+    runs-on: [self-hosted, linux, x64]
     needs: [ "rpms" ]
     steps:
       - name: Checkout
