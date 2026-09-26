@@ -104,6 +104,11 @@ jobs:
           # The organisation's repository key, pinned by every installer.
           [ "$fpr" = "3CA032874B651B0CF01DFB677EAF585FB9B59164" ] \
             || { echo "::error::signing key is $fpr, not the pinned organisation key"; exit 1; }
+          # keys/ is what installers pin by digest and what apt/dnf trust; it
+          # must hold exactly the key that is about to sign.
+          committed="$(nix shell nixpkgs#gnupg -c gpg --batch --show-keys --with-colons keys/metacraft-labs-archive-keyring.gpg | awk -F: '$1=="pub"{n++} $1=="fpr" && !f{print $10; f=1} END{if(n!=1) print "MULTIPLE"}')"
+          [ "$committed" = "$fpr" ] \
+            || { echo "::error::keys/metacraft-labs-archive-keyring.gpg holds '$committed', not the signing key $fpr"; exit 1; }
           echo "fpr=$fpr" >> "$GITHUB_OUTPUT"
 
       - name: Add the packages and regenerate the indices
@@ -133,11 +138,18 @@ jobs:
             deb s3 sync repo-deb/pool/ "$d/pool/" --only-show-errors
             rpm s3 sync repo-rpm/RPMS/ "$r/RPMS/" --only-show-errors
             deb s3 sync repo-deb/dists/ "$d/dists/" --delete --only-show-errors
-            deb s3 sync repo-deb/keys/ "$d/keys/" --only-show-errors
+            # The trust anchor, verbatim from this repository, under the name
+            # installers use and under the names existing users already have.
+            for b in deb rpm; do
+              t="$d"; [ "$b" = rpm ] && t="$r"
+              $b s3 cp keys/metacraft-labs-archive-keyring.gpg "$t/keys/metacraft-labs-archive-keyring.gpg" --only-show-errors
+              $b s3 cp keys/metacraft-labs-archive-keyring.asc "$t/keys/metacraft-labs-archive-keyring.asc" --only-show-errors
+            done
+            deb s3 cp keys/metacraft-labs-archive-keyring.asc "$d/keys/public.asc" --only-show-errors
             deb s3 cp repo-deb/index.html "$d/index.html" --only-show-errors
             deb s3 cp repo-deb/favicon.png "$d/favicon.png" --only-show-errors
             rpm s3 sync repo-rpm/repodata/ "$r/repodata/" --delete --only-show-errors
-            rpm s3 cp repo-rpm/rpmkey.pub "$r/rpmkey.pub" --only-show-errors
+            rpm s3 cp keys/metacraft-labs-archive-keyring.asc "$r/rpmkey.pub" --only-show-errors
             rpm s3 cp repo-rpm/favicon.png "$r/favicon.png" --only-show-errors
           '
 
