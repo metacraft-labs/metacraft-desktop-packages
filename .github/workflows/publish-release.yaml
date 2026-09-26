@@ -1,0 +1,158 @@
+name: Publish a release into the org repositories
+
+# Adds one product release's .deb and .rpm assets to deb.metacraft-labs.com and
+# rpm.metacraft-labs.com (the same buckets deb./rpm.codetracer.com serve).
+#
+# Products build their own packages from their release payload and attach them
+# to their GitHub Release; after the Release is published they dispatch this
+# workflow. The signing key and the bucket credentials live only here.
+# See metacraft-specs infrastructure/package-distribution.md §9.1.
+on:
+  repository_dispatch:
+    types: [publish-release]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Product repository, owner/name (e.g. metacraft-labs/reprobuild)
+        required: true
+      tag:
+        description: Release tag (e.g. v0.2.0)
+        required: true
+
+permissions:
+  contents: read
+
+# One publisher at a time for every product, and never cancelled: each run
+# regenerates the indices over the whole repository, so two concurrent runs
+# would each upload an index missing the other's packages, and a cancelled
+# run could leave packages uploaded with no index naming them.
+concurrency:
+  group: org-package-repositories
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 60
+    env:
+      REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
+      TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate the request
+        run: |
+          set -euo pipefail
+          case "$REPOSITORY" in
+            metacraft-labs/*) ;;
+            *) echo "::error::only metacraft-labs repositories publish here, got '$REPOSITORY'"; exit 1 ;;
+          esac
+          grep -qxF "$REPOSITORY" publishers.txt \
+            || { echo "::error::$REPOSITORY is not listed in publishers.txt"; exit 1; }
+          [[ "$TAG" =~ ^v?[0-9][0-9A-Za-z.+~-]*$ ]] || { echo "::error::malformed tag '$TAG'"; exit 1; }
+
+      - name: Download and verify the release's packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir incoming
+          gh release download "$TAG" -R "$REPOSITORY" -D incoming \
+            -p '*.deb' -p '*.rpm' -p SHA256SUMS
+          cd incoming
+          shopt -s nullglob
+          pkgs=(*.deb *.rpm)
+          [ ${#pkgs[@]} -gt 0 ] || { echo "::error::$REPOSITORY $TAG has no .deb or .rpm assets"; exit 1; }
+          # Every package must be covered by the release's SHA256SUMS; a
+          # package the release did not account for is not published.
+          for f in "${pkgs[@]}"; do
+            grep -E "^[0-9a-f]{64}  \*?${f//./\\.}\$" SHA256SUMS > /dev/null \
+              || { echo "::error::$f is not listed in SHA256SUMS"; exit 1; }
+          done
+          grep -E "  \*?($(printf '%s|' "${pkgs[@]}" | sed 's/\./\\./g; s/|$//'))\$" SHA256SUMS | sha256sum -c -
+          rm SHA256SUMS
+
+      - name: Sync the published repositories down
+        env:
+          DEB_AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY_ID }}
+          DEB_AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY }}
+          DEB_ENDPOINT: ${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }}
+          RPM_AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_RPM_BUCKET_ACCESS_KEY_ID }}
+          RPM_AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_RPM_ACCESS_KEY }}
+          RPM_ENDPOINT: ${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }}
+        run: |
+          set -euo pipefail
+          nix shell nixpkgs#awscli2 -c sh -c '
+            AWS_ACCESS_KEY_ID=$DEB_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$DEB_AWS_SECRET_ACCESS_KEY \
+              aws --endpoint-url="$DEB_ENDPOINT" s3 sync "s3://${{ vars.DEB_CODETRACER_BUCKET_NAME }}/pool/" repo-deb/pool/ --only-show-errors
+            AWS_ACCESS_KEY_ID=$RPM_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$RPM_AWS_SECRET_ACCESS_KEY \
+              aws --endpoint-url="$RPM_ENDPOINT" s3 sync "s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}/" repo-rpm/ \
+                --exclude "repodata/*" --exclude "*" --include "RPMS/*" --include "SRPMS/*" --only-show-errors
+          '
+          mkdir -p repo-deb/pool repo-rpm
+
+      - name: Import the repository signing key
+        id: key
+        env:
+          SIGNING_KEY: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
+          SIGNING_KEY_PASS: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          fpr="$(nix shell nixpkgs#gnupg -c ./scripts/import-signing-key.sh)"
+          # The organisation's repository key, pinned by every installer.
+          [ "$fpr" = "3CA032874B651B0CF01DFB677EAF585FB9B59164" ] \
+            || { echo "::error::signing key is $fpr, not the pinned organisation key"; exit 1; }
+          echo "fpr=$fpr" >> "$GITHUB_OUTPUT"
+
+      - name: Add the packages and regenerate the indices
+        run: |
+          nix shell nixpkgs#reprepro nixpkgs#createrepo_c nixpkgs#rpm nixpkgs#gnupg nixpkgs#dpkg -c \
+            ./scripts/publish-into-repositories.sh \
+              --incoming incoming --deb-dir repo-deb --rpm-dir repo-rpm \
+              --key-id "${{ steps.key.outputs.fpr }}"
+          cp favicon.png debian/index.html repo-deb/
+          cp favicon.png repo-rpm/
+
+      - name: Upload packages, then indices
+        env:
+          DEB_AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY_ID }}
+          DEB_AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_DEB_BUCKET_ACCESS_KEY }}
+          DEB_ENDPOINT: ${{ secrets.CODETRACER_DEB_BUCKET_S3_URL }}
+          RPM_AWS_ACCESS_KEY_ID: ${{ secrets.CODETRACER_RPM_BUCKET_ACCESS_KEY_ID }}
+          RPM_AWS_SECRET_ACCESS_KEY: ${{ secrets.CODETRACER_RPM_ACCESS_KEY }}
+          RPM_ENDPOINT: ${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }}
+        run: |
+          set -euo pipefail
+          nix shell nixpkgs#awscli2 -c sh -c '
+            deb() { AWS_ACCESS_KEY_ID=$DEB_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$DEB_AWS_SECRET_ACCESS_KEY aws --endpoint-url="$DEB_ENDPOINT" "$@"; }
+            rpm() { AWS_ACCESS_KEY_ID=$RPM_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$RPM_AWS_SECRET_ACCESS_KEY aws --endpoint-url="$RPM_ENDPOINT" "$@"; }
+            d="s3://${{ vars.DEB_CODETRACER_BUCKET_NAME }}"
+            r="s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}"
+            deb s3 sync repo-deb/pool/ "$d/pool/" --only-show-errors
+            rpm s3 sync repo-rpm/RPMS/ "$r/RPMS/" --only-show-errors
+            deb s3 sync repo-deb/dists/ "$d/dists/" --delete --only-show-errors
+            deb s3 sync repo-deb/keys/ "$d/keys/" --only-show-errors
+            deb s3 cp repo-deb/index.html "$d/index.html" --only-show-errors
+            deb s3 cp repo-deb/favicon.png "$d/favicon.png" --only-show-errors
+            rpm s3 sync repo-rpm/repodata/ "$r/repodata/" --delete --only-show-errors
+            rpm s3 cp repo-rpm/rpmkey.pub "$r/rpmkey.pub" --only-show-errors
+            rpm s3 cp repo-rpm/favicon.png "$r/favicon.png" --only-show-errors
+          '
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published $REPOSITORY $TAG"
+            echo
+            (cd incoming && ls -1 *.deb *.rpm 2>/dev/null | sed 's/^/- /')
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the key
+        if: always()
+        run: |
+          [ -n "${GNUPGHOME:-}" ] && [ -d "$GNUPGHOME" ] || exit 0
+          nix shell nixpkgs#gnupg -c gpgconf --kill all || true
+          find "$GNUPGHOME" -type f -exec shred -u {} + 2>/dev/null || true
+          rm -rf "$GNUPGHOME"
