@@ -24,13 +24,13 @@ jobs:
       rrfile: ${{ steps.rpmfile.outputs.rrfile }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Insatll git
         run: "dnf install -y gpg git rpm-sign"
         
       - name: "Import GPG key for signing commits"
         id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
@@ -92,7 +92,7 @@ jobs:
     needs: [ "rpms" ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install essentials
         run: |
           sudo apt update && sudo apt install git gnupg ruby-dev build-essential reprepro
@@ -105,7 +105,7 @@ jobs:
           arch: amd64
       - name: "Import GPG key for signing commits"
         id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}

@@ -38,7 +38,7 @@ jobs:
       REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
       TAG: ${{ github.event.client_payload.tag || inputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Validate the request
         run: |
