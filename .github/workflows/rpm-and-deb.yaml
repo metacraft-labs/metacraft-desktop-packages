@@ -1,7 +1,10 @@
 name: Deploy RPM and DEBs
+# Manual only. This job regenerates each repository's index from what it built
+# in this run alone, so running it drops every other product's packages from
+# deb./rpm.metacraft-labs.com (it also needs a container runtime the ephemeral
+# runners do not have). Products publish through publish-release.yaml, which
+# is additive and serialized; CodeTracer moves there next.
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
   
 permissions:
