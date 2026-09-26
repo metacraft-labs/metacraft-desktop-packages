@@ -19,6 +19,10 @@
 # published version is never overwritten (package-distribution.md §9). Byte-
 # identical re-publication is a no-op, so a retried publish is safe.
 #
+# It does not write the public key. That is keys/ in this repository,
+# committed once and uploaded verbatim, so its bytes never change and
+# installers can pin its SHA-256.
+#
 # After it runs, the trees are ready to upload. Upload packages before indices
 # (`pool/` then `dists/`, `RPMS/` then `repodata/`) so no index ever names a
 # file the bucket does not have yet.
@@ -70,8 +74,6 @@ if [ ${#existing_debs[@]} -gt 0 ] || [ ${#new_debs[@]} -gt 0 ]; then
   mkdir -p "$deb_dir/pool"
   cp -rn "$work/pool/." "$deb_dir/pool/"
 fi
-mkdir -p "$deb_dir/keys"
-gpg --batch --armor --export "$key_id" > "$deb_dir/keys/public.asc"
 
 # The index must list every package that is in the pool: that is the
 # property earlier publishers lacked.
@@ -110,5 +112,4 @@ done
 createrepo_c --quiet "$rpm_dir"
 rm -f "$rpm_dir/repodata/repomd.xml.asc"
 gpg --batch --yes --detach-sign --armor -u "$key_id" "$rpm_dir/repodata/repomd.xml"
-gpg --batch --armor --export "$key_id" > "$rpm_dir/rpmkey.pub"
 echo "rpm: $(find "$rpm_dir/RPMS" -name '*.rpm' | wc -l) package(s) indexed"

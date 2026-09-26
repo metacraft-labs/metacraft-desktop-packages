@@ -23,5 +23,22 @@ and signs the indices over every package already published, so publishing
 one product never removes another. Runs are serialized and never cancelled.
 A product must be listed in [`publishers.txt`](publishers.txt).
 
+### The trust anchor
+
+[`keys/`](keys) holds the organisation's public key, committed once and
+uploaded verbatim to both hosts on every publish. Its bytes do not change,
+so installers pin them by digest:
+
+| Published at | SHA-256 |
+|---|---|
+| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.gpg` | `eee3b439fbd9457d20ffc3fcf4446d1da15f299c8924dec0fb46232e7eae4790` |
+| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.asc` | `27d3273b8e90f966d9557420aaa13446ee8b1b2c6da027137a094f5322da68fc` |
+
+The `.asc` is also served at the paths existing users already have:
+`deb.metacraft-labs.com/keys/public.asc` and `rpm.metacraft-labs.com/rpmkey.pub`.
+The publisher refuses to sign with any key other than the one in `keys/`.
+Changing it is a key rotation, so every installer's pinned digest changes
+in the same release.
+
 The design is specified in metacraft-specs,
 `infrastructure/package-distribution.md` §3 and §9.1.
