@@ -2,7 +2,7 @@ Origin: Metacraft Labs
 Label: Metacraft Labs Debian packages
 Suite: stable
 Codename: stable
-Architectures: amd64
+Architectures: amd64 arm64
 Components: main
 Description: Metacraft Labs Debian packages - packages for CodeTracer and more(rolling)
 #SignWith: yes
