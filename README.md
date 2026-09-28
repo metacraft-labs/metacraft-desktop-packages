@@ -42,7 +42,8 @@ in the same release.
 
 The design is specified in metacraft-specs,
 `infrastructure/package-distribution.md` §3 and §9.1.
-# Verify published tool packages
+
+## Verify published tool packages
 
 After publishing Gosti, io-mon or RunQuota, dispatch
 `verify-tool-release.yaml` with the product name and version (without `v`).
