@@ -94,15 +94,18 @@ jobs:
       - name: Import the repository signing key
         id: key
         env:
-          SIGNING_KEY: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
-          SIGNING_KEY_PASS: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
+          # The dedicated package-repository key, sealed in infra's
+          # terraform/github/secrets-metacraft-prod and projected to this
+          # repository only. It has no passphrase: the age envelope and the
+          # Actions secret store are what protect it.
+          SIGNING_KEY: ${{ secrets.METACRAFT_REPO_SIGNING_KEY }}
         run: |
           set -euo pipefail
           export GNUPGHOME="$RUNNER_TEMP/gnupg"
           echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
           fpr="$(nix shell nixpkgs#gnupg -c ./scripts/import-signing-key.sh)"
           # The organisation's repository key, pinned by every installer.
-          [ "$fpr" = "3CA032874B651B0CF01DFB677EAF585FB9B59164" ] \
+          [ "$fpr" = "22F80A4A65B08E36AEA89F57E127BF3AC4CE1719" ] \
             || { echo "::error::signing key is $fpr, not the pinned organisation key"; exit 1; }
           # keys/ is what installers pin by digest and what apt/dnf trust; it
           # must hold exactly the key that is about to sign.
