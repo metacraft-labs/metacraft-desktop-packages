@@ -1,0 +1,38 @@
+name: Verify a tool release in the public repositories
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        type: choice
+        options: [gosti, io-mon, runquota]
+        required: true
+      version:
+        description: Published version without the v prefix
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install and verify from the live repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCT: ${{ inputs.product }}
+          VERSION: ${{ inputs.version }}
+        run: bash scripts/verify-tool-release.sh "$PRODUCT" "$VERSION"
+      - name: Preserve installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-verification-${{ inputs.product }}-${{ inputs.version }}
+          path: test-logs/
+          if-no-files-found: error
+          retention-days: 30
