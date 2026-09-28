@@ -1,1 +1,4 @@
+metacraft-labs/gosti
+metacraft-labs/io-mon
 metacraft-labs/reprobuild
+metacraft-labs/runquota
