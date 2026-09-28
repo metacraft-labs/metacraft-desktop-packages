@@ -10,7 +10,8 @@ Desktop packages for Metacraft Labs. Current formats:
 
 There is one apt and one RPM repository for every Metacraft product,
 signed with the organisation's key
-(`3CA0 3287 4B65 1B0C F01D  FB67 7EAF 585F B9B5 9164`). A product builds its
+(`22F8 0A4A 65B0 8E36 AEA8  9F57 E127 BF3A C4CE 1719`,
+"Metacraft Labs Package Repositories", expires 2028-09-27). A product builds its
 `.deb` and `.rpm` from its release payload, attaches them to its GitHub
 Release beside `SHA256SUMS`, and after the Release is published sends a
 `repository_dispatch` of type `publish-release` with
@@ -31,8 +32,8 @@ so installers pin them by digest:
 
 | Published at | SHA-256 |
 |---|---|
-| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.gpg` | `eee3b439fbd9457d20ffc3fcf4446d1da15f299c8924dec0fb46232e7eae4790` |
-| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.asc` | `27d3273b8e90f966d9557420aaa13446ee8b1b2c6da027137a094f5322da68fc` |
+| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.gpg` | `e738c80f2d7bf230b868f5f140acecef20904333c6892e8f17670fa11483e9dc` |
+| `https://{deb,rpm}.metacraft-labs.com/keys/metacraft-labs-archive-keyring.asc` | `aa89db2215ce0b33e029b8302d4d94fac742b92d279f178437abe10d9b54c988` |
 
 The `.asc` is also served at the paths existing users already have:
 `deb.metacraft-labs.com/keys/public.asc` and `rpm.metacraft-labs.com/rpmkey.pub`.
