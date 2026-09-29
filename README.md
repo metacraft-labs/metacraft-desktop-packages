@@ -51,10 +51,14 @@ After publishing Gosti, io-mon or RunQuota, dispatch
 It installs that exact version from the public apt/RPM repositories in
 Debian 11, Ubuntu 24.04 and AlmaLinux 9 containers on native Linux x86_64.
 
-The check uses the committed repository trust key, downloads both Linux
+The check uses the committed repository trust key, downloads all required Linux
 architectures through apt/dnf, compares their packages with the GitHub release,
 and compares every installed payload file with the verified release archive.
 RPM comparison uses its payload digest because repository signing changes
 the package bytes. ARM64 package metadata and downloads are checked here;
 native ARM64 execution remains a mandatory producer release check.
+io-mon 0.1.0 explicitly targets Linux x86_64 only; its ARM64 backend is
+deferred by the approved tool release specification. That exception is scoped
+to this product and version. Gosti, RunQuota and later versions retain both
+architecture checks.
 Logs and resolved container image digests are retained as workflow artifacts.

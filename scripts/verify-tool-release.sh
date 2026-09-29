@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verify public metadata and install in clean distributions. The producer's
-# release workflow separately requires native execution on both architectures.
+# release workflow separately requires native execution on every declared architecture.
 set -euo pipefail
 product="${1:?product required}"
 version="${2:?version required}"
@@ -10,6 +10,14 @@ case "$product" in
   *) echo 'unsupported product' >&2; exit 1 ;;
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+# Explicit first-release scope: do not infer support from whatever assets
+# happened to upload. Later io-mon versions require both architectures again.
+deb_architectures='amd64 arm64'
+rpm_architectures='x86_64 aarch64'
+if [ "$product" = io-mon ] && [ "$version" = 0.1.0 ]; then
+  deb_architectures=amd64
+  rpm_architectures=x86_64
+fi
 [ "$(uname -m)" = x86_64 ] || { echo 'installation gate requires native x86_64' >&2; exit 1; }
 work="$(mktemp -d "$PWD/repository-check.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
@@ -43,6 +51,7 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
   log="test-logs/repository-${product}-${image//:/-}.log"
   if ! docker run --rm -v "$work:/payload:ro" \
     -e PRODUCT="$product" -e PACKAGE="$package" -e VERSION="$version" \
+    -e DEB_ARCHITECTURES="$deb_architectures" -e RPM_ARCHITECTURES="$rpm_architectures" \
     "$image" bash -euo pipefail -c '
       mkdir -p /tmp/packages
       cd /tmp/packages
@@ -51,13 +60,13 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
         apt-get install -y --no-install-recommends ca-certificates python3 libstdc++6
         cp /payload/metacraft-labs-archive-keyring.gpg /usr/share/keyrings/metacraft-labs.gpg
         chmod 644 /usr/share/keyrings/metacraft-labs.gpg
-        dpkg --add-architecture arm64
+        if [[ " $DEB_ARCHITECTURES " == *" arm64 "* ]]; then dpkg --add-architecture arm64; fi
         echo "deb [signed-by=/usr/share/keyrings/metacraft-labs.gpg] https://deb.metacraft-labs.com stable main" > /etc/apt/sources.list.d/metacraft-labs.list
         # Host distro ARM mirrors may differ (Ubuntu uses ports). Only
         # refresh our dual-architecture source; retain the base amd64 indices.
         apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/metacraft-labs.list \
           -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
-        for arch in amd64 arm64; do
+        for arch in $DEB_ARCHITECTURES; do
           apt-get download "$PACKAGE:$arch=$VERSION-1"
           deb="${PACKAGE}_${VERSION}-1_${arch}.deb"
           test -s "$deb"
@@ -71,7 +80,7 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
         dnf install -y ca-certificates python3 libstdc++ dnf-plugins-core
         printf "[metacraft]\nname=Metacraft Labs\nbaseurl=https://rpm.metacraft-labs.com\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=file:///payload/metacraft-labs-archive-keyring.asc\n" > /etc/yum.repos.d/metacraft.repo
         rpm --import /payload/metacraft-labs-archive-keyring.asc
-        for arch in x86_64 aarch64; do
+        for arch in $RPM_ARCHITECTURES; do
           dnf -y --forcearch="$arch" --disablerepo="*" --enablerepo=metacraft download "$PACKAGE-$VERSION-1.$arch"
           rpmfile="$PACKAGE-$VERSION-1.$arch.rpm"
           test -s "$rpmfile"
@@ -88,5 +97,5 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
     tail -100 "$log" >&2
     exit 1
   fi
-  echo "Verified $product $version: $image installation and both repository architectures"
+  echo "Verified $product $version: $image installation and repository architectures $rpm_architectures"
 done
