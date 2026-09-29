@@ -11,10 +11,10 @@ case "$product" in
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 # Explicit first-release scope: do not infer support from whatever assets
-# happened to upload. Later io-mon versions require both architectures again.
+# happened to upload. Later versions require both architectures again.
 deb_architectures='amd64 arm64'
 rpm_architectures='x86_64 aarch64'
-if [ "$product" = io-mon ] && [ "$version" = 0.1.0 ]; then
+if [ "$version" = 0.1.0 ]; then
   deb_architectures=amd64
   rpm_architectures=x86_64
 fi
