@@ -31,8 +31,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  choose:
+    # Owner: zah. Follow-up: metacraft-specs/issues/
+    # 2026-09-24-ci-runner-mode-policy-conflicts-with-hosted-runner-ban.md
+    uses: metacraft-labs/devops-modules/.github/workflows/reusable-choose-runner.yml@cd73eba732b9190499ec78e1e65b0dd784507440
+    with:
+      preferred: ubuntu-24.04
+      fallback: '["self-hosted","linux","x64"]'
+
   publish:
-    runs-on: [self-hosted, linux, x64]
+    needs: choose
+    runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
     timeout-minutes: 60
     env:
       REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
@@ -50,6 +59,11 @@ jobs:
           grep -qxF "$REPOSITORY" publishers.txt \
             || { echo "::error::$REPOSITORY is not listed in publishers.txt"; exit 1; }
           [[ "$TAG" =~ ^v?[0-9][0-9A-Za-z.+~-]*$ ]] || { echo "::error::malformed tag '$TAG'"; exit 1; }
+
+      - name: Set up Nix
+        uses: metacraft-labs/metacraft-github-actions/setup-nix@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
+        with:
+          gh-token: ${{ github.token }}
 
       - name: Download and verify the release's packages
         env:

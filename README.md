@@ -24,6 +24,13 @@ and signs the indices over every package already published, so publishing
 one product never removes another. Runs are serialized and never cancelled.
 A product must be listed in [`publishers.txt`](publishers.txt).
 
+Publication and live installation checks use the shared `CI_RUNNER_MODE`
+selector. This public repository defaults to standard `ubuntu-24.04`; an
+org/repository override selects the existing `[self-hosted, linux, x64]`
+fallback. Publication provisions Nix explicitly. Signing credentials remain
+managed by infra's Terraform secret projection, and all publishing runs share
+the same serialized concurrency group.
+
 ### The trust anchor
 
 [`keys/`](keys) holds the organisation's public key, committed once and
