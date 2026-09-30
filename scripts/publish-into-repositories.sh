@@ -116,8 +116,14 @@ if [ ${#newest_debs[@]} -gt 0 ]; then
   diff -u "$work/expected-sorted" "$work/indexed-packages" || {
     echo "apt index does not retain the newest version of every package architecture" >&2; exit 1;
   }
-  rm -rf "$deb_dir/dists"
-  cp -r "$work/dists" "$deb_dir/dists"
+  python3 "$here/scripts/prepare-apt-by-hash.py" "$work/dists/stable"
+  gpg --batch --yes --armor --detach-sign -u "$key_id" \
+    --output "$work/dists/stable/Release.gpg" "$work/dists/stable/Release"
+  gpg --batch --yes --clearsign -u "$key_id" \
+    --output "$work/dists/stable/InRelease" "$work/dists/stable/Release"
+  # Preserve earlier by-hash files for clients holding an older InRelease.
+  mkdir -p "$deb_dir/dists"
+  cp -R "$work/dists/." "$deb_dir/dists/"
   mkdir -p "$deb_dir/pool"
   cp -rn "$work/pool/." "$deb_dir/pool/"
 fi
@@ -150,7 +156,9 @@ for rpm in "${new_rpms[@]}"; do
   fi
   mv "$signed" "$dest"
 done
-createrepo_c --quiet "$rpm_dir"
+# A positive retain count keeps all old metadata in current createrepo_c.
+# Readers may still hold the preceding signed repomd.xml.
+createrepo_c --quiet --retain-old-md=1 "$rpm_dir"
 rm -f "$rpm_dir/repodata/repomd.xml.asc"
 gpg --batch --yes --detach-sign --armor -u "$key_id" "$rpm_dir/repodata/repomd.xml"
 echo "rpm: $(find "$rpm_dir/RPMS" -name '*.rpm' | wc -l) package(s) indexed"

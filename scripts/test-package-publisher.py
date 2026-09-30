@@ -4,15 +4,20 @@
 No mocks: the fixtures are valid packages with small text payloads. An optional
 release directory adds the exact downloaded product deb/rpm files to the test.
 Everything, including the GnuPG home and RPM database, stays in a temporary tree.
+The optional real apt client reads a real HTTP server with old mutable indices
+beside current signed metadata, reproducing a cache that retains older files.
 """
 import argparse
 import gzip
 import hashlib
+import functools
+import http.server
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import threading
 
 
 def run(*args, **kwargs):
@@ -26,6 +31,8 @@ def sha(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-dir", type=Path, action="append", default=[])
+    parser.add_argument("--apt-client", action="store_true",
+                        help="require a real Debian 11 apt client through Docker on Linux")
     parser.add_argument("--publisher", type=Path,
                         default=Path(__file__).with_name("publish-into-repositories.sh"))
     args = parser.parse_args()
@@ -119,6 +126,24 @@ echo payload > %{buildroot}/usr/share/publisher-test/payload
                     path = deb_repo / record["Filename"]
                     assert sha(path) == record["SHA256"], path
 
+            def immutable_indices():
+                files = list((deb_repo / "dists").glob("**/by-hash/*/*"))
+                assert files, "no immutable apt indices"
+                for path in files:
+                    assert hashlib.new(path.parent.name.lower(), path.read_bytes()).hexdigest() == path.name
+                return {str(p.relative_to(deb_repo)): sha(p) for p in files}
+
+            original_indices = immutable_indices()
+            old_mutable = {p: p.read_bytes() for p in
+                           (deb_repo / "dists/stable/main").glob("binary-*/Packages*")}
+            old_rpm_metadata = {p: sha(p) for p in (rpm_repo / "repodata").iterdir()
+                                if p.name not in ("repomd.xml", "repomd.xml.asc")}
+            deb("publisher-later", "1.0-1", "amd64")
+            run(*command, env=env)
+            immutable_indices()
+            assert all(sha(deb_repo / p) == digest for p, digest in original_indices.items())
+            assert all(sha(p) == digest for p, digest in old_rpm_metadata.items())
+
             run("gpg", "--batch", "--verify", str(deb_repo / "dists/stable/InRelease"), env=env)
             run("gpg", "--batch", "--verify", str(rpm_repo / "repodata/repomd.xml.asc"),
                 str(rpm_repo / "repodata/repomd.xml"), env=env)
@@ -129,6 +154,46 @@ echo payload > %{buildroot}/usr/share/publisher-test/payload
             run("rpm", "--dbpath", rpm_db, "--import", str(public_key))
             for package in (rpm_repo / "RPMS").glob("*/*.rpm"):
                 run("rpmkeys", "--dbpath", rpm_db, "--checksig", str(package))
+
+            if args.apt_client:
+                # Serve genuine earlier mutable files with the current signed
+                # entrypoint. Successful clients must obtain the hashed files.
+                for path, content in old_mutable.items():
+                    path.write_bytes(content)
+                server = http.server.ThreadingHTTPServer(
+                    ("127.0.0.1", 0),
+                    functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(deb_repo)))
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    apt_command = ["docker", "run", "--rm", "--network", "host", "-v", f"{root}:/payload:ro",
+                                   "-e", f"REPO_URL=http://127.0.0.1:{server.server_port}",
+                                   "debian:11", "bash", "-euo", "pipefail", "-c", '''
+                      cp /payload/public.asc /tmp/publisher.asc
+                      echo "deb [signed-by=/tmp/publisher.asc] $REPO_URL stable main" > /tmp/publisher.list
+                      options=(-o Dir::Etc::sourcelist=/tmp/publisher.list -o Dir::Etc::sourceparts=-)
+                      apt-get "${options[@]}" update
+                      apt-cache "${options[@]}" show publisher-later | grep -x "Version: 1.0-1"
+                    ''']
+                    run(*apt_command)
+                    # A signed entrypoint without by-hash must detect the stale
+                    # files. This control proves that the scenario is sensitive.
+                    release = deb_repo / "dists/stable/Release"
+                    signed = deb_repo / "dists/stable/InRelease"
+                    correct_release, correct_signed = release.read_bytes(), signed.read_bytes()
+                    release.write_bytes(correct_release.replace(b"Acquire-By-Hash: yes\n", b""))
+                    run("gpg", "--batch", "--yes", "--clearsign", "-u", fingerprint,
+                        "--output", str(signed), str(release), env=env)
+                    control = subprocess.run(apt_command, text=True, capture_output=True)
+                    assert control.returncode != 0, "apt accepted the deliberately inconsistent index"
+                    assert "unexpected size" in control.stdout + control.stderr or "Hash Sum mismatch" in control.stdout + control.stderr
+                    release.write_bytes(correct_release)
+                    signed.write_bytes(correct_signed)
+                    print("PASS: real apt uses by-hash; signed stale-index control is rejected")
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join()
 
             pooled = {str(p.relative_to(root)): sha(p) for pattern in
                       ("deb/pool/**/*.deb", "rpm/RPMS/**/*.rpm") for p in root.glob(pattern)}
@@ -142,7 +207,7 @@ echo payload > %{buildroot}/usr/share/publisher-test/payload
             result = subprocess.run(command, env=env, text=True, capture_output=True)
             assert result.returncode != 0 and "refusing" in result.stderr, result
             assert all(sha(root / p) == digest for p, digest in pooled.items()), "rejection changed packages"
-            print("PASS: metadata defaults, both architectures, Debian epochs, signatures, immutable retry and rejection")
+            print("PASS: metadata defaults, both architectures, Debian epochs, signatures, retained hashed indices, immutable retry and rejection")
         finally:
             subprocess.run(["gpgconf", "--kill", "all"], env=env, check=False)
 

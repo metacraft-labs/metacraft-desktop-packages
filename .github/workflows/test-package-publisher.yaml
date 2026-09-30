@@ -31,4 +31,4 @@ jobs:
           nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh
       - name: Test real archives and repository signatures
         run: |
-          nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py
+          nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py --apt-client
