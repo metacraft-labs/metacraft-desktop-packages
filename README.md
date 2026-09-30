@@ -57,6 +57,9 @@ After publishing Gosti, io-mon or RunQuota, dispatch
 `verify-tool-release.yaml` with the product name and version (without `v`).
 It installs that exact version from the public apt/RPM repositories in
 Debian 11, Ubuntu 24.04 and AlmaLinux 9 containers on native Linux x86_64.
+Debian 11 uses signed Debian snapshots from 2026-08-31 for its test
+prerequisites, because its live security index names removed packages after
+LTS ended. The Metacraft repository is always read live.
 
 The check uses the committed repository trust key, downloads all required Linux
 architectures through apt/dnf, compares their packages with the GitHub release,
