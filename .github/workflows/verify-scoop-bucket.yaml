@@ -1,0 +1,153 @@
+name: Verify the Scoop bucket on Windows
+
+# Installs a product through Scoop on a real Windows machine, exactly as a user
+# would, and checks that the installed command reports the manifest's version.
+#
+# - On a pull request that touches the bucket machinery, the manifest is
+#   GENERATED from a real published release by scripts/scoop-manifest.py into
+#   a throwaway local bucket, so the generator's output is proven installable
+#   before it can reach users.
+# - Dispatched by hand, it adds the LIVE bucket
+#   (https://github.com/metacraft-labs/metacraft-desktop-packages) and installs
+#   from it. With `installer_url` it also runs a product's `irm <url> | iex`
+#   installer on a second, clean machine.
+#
+# GitHub-hosted windows-latest: the public repository runs it at no cost, and
+# no self-hosted Windows runner is needed for a check this small.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - bucket/**
+      - scoop/**
+      - scripts/scoop-manifest.py
+      - .github/workflows/verify-scoop-bucket.yaml
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Manifest to install (bucket/<app>.json)
+        default: reprobuild
+        required: true
+      command:
+        description: Installed command that must print the manifest version for --version
+        default: repro
+        required: true
+      installer_url:
+        description: Optional `irm <url> | iex` installer to run too (e.g. https://get.reprobuild.com/pwsh)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  scoop-install:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      APP: ${{ inputs.app || 'reprobuild' }}
+      COMMAND: ${{ inputs.command || 'repro' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-RestMethod https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\install-scoop.ps1"
+          # Hosted runners are elevated; Scoop's installer requires opting in.
+          & "$env:RUNNER_TEMP\install-scoop.ps1" -RunAsAdmin
+          "$env:USERPROFILE\scoop\shims" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Generate a bucket from a real release (pull request)
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $release = "$env:RUNNER_TEMP\release"
+          gh release download v0.2.5 -R metacraft-labs/reprobuild -D $release `
+            -p 'reprobuild-*-windows-x86_64.zip' -p SHA256SUMS
+          if ($LASTEXITCODE) { exit 1 }
+          $bucket = "$env:RUNNER_TEMP\bucket-repo"
+          git init -q $bucket
+          python scripts/scoop-manifest.py --config scoop/reprobuild.json --tag v0.2.5 `
+            --release-dir $release --bucket "$bucket\bucket"
+          if ($LASTEXITCODE) { exit 1 }
+          Get-Content "$bucket\bucket\reprobuild.json"
+          git -C $bucket add bucket
+          git -C $bucket -c user.name=ci -c user.email=ci@example.invalid commit -q -m bucket
+          "BUCKET_URL=$bucket" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Use the live bucket (dispatch)
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          "BUCKET_URL=https://github.com/metacraft-labs/metacraft-desktop-packages" |
+            Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: scoop bucket add, scoop install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          scoop bucket add metacraft $env:BUCKET_URL
+          if ($LASTEXITCODE) { exit 1 }
+          scoop install "metacraft/$env:APP"
+          if ($LASTEXITCODE) { exit 1 }
+          $manifest = Get-Content "$env:USERPROFILE\scoop\buckets\metacraft\bucket\$env:APP.json" -Raw | ConvertFrom-Json
+          "EXPECTED_VERSION=$($manifest.version)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: The installed command reports the manifest version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $found = Get-Command $env:COMMAND
+          Write-Host "$env:COMMAND resolves to $($found.Source)"
+          $out = & $env:COMMAND --version
+          Write-Host "$env:COMMAND --version: $out"
+          if ($LASTEXITCODE) { throw "$env:COMMAND --version exited $LASTEXITCODE" }
+          if ("$out" -notmatch "(^|\s)$([regex]::Escape($env:EXPECTED_VERSION))(\s|$)") {
+            throw "expected version $env:EXPECTED_VERSION, got: $out"
+          }
+          scoop list
+          Write-Host "OK: $env:APP $env:EXPECTED_VERSION installed through Scoop"
+
+  installer:
+    if: inputs.installer_url
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      COMMAND: ${{ inputs.command }}
+      INSTALLER_URL: ${{ inputs.installer_url }}
+    steps:
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-RestMethod https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\install-scoop.ps1"
+          & "$env:RUNNER_TEMP\install-scoop.ps1" -RunAsAdmin
+          "$env:USERPROFILE\scoop\shims" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: irm <installer_url> | iex
+        shell: pwsh
+        run: |
+          # The installer ends with `exit`, which ends this step's session, so
+          # the result is checked in the next step.
+          Invoke-RestMethod $env:INSTALLER_URL | Invoke-Expression
+
+      - name: The installed command runs, from the org bucket
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          scoop bucket list
+          $remote = git -C "$env:USERPROFILE\scoop\buckets\metacraft" remote get-url origin
+          Write-Host "bucket 'metacraft' -> $remote"
+          if ($remote -ne 'https://github.com/metacraft-labs/metacraft-desktop-packages') {
+            throw "the installer registered $remote, not the organisation bucket"
+          }
+          $out = & $env:COMMAND --version
+          Write-Host "$env:COMMAND --version: $out"
+          if ($LASTEXITCODE) { throw "$env:COMMAND --version exited $LASTEXITCODE" }
+          scoop list

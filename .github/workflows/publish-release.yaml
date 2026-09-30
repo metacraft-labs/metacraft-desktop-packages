@@ -1,7 +1,9 @@
 name: Publish a release into the org repositories
 
 # Adds one product release's .deb and .rpm assets to deb.metacraft-labs.com and
-# rpm.metacraft-labs.com (the same buckets deb./rpm.codetracer.com serve).
+# rpm.metacraft-labs.com (the same buckets deb./rpm.codetracer.com serve), and
+# its Windows zip to the organisation's Scoop bucket, bucket/ in this
+# repository (the `scoop` job below).
 #
 # Products build their own packages from their release payload and attach them
 # to their GitHub Release; after the Release is published they dispatch this
@@ -51,15 +53,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate the request
-        run: |
-          set -euo pipefail
-          case "$REPOSITORY" in
-            metacraft-labs/*) ;;
-            *) echo "::error::only metacraft-labs repositories publish here, got '$REPOSITORY'"; exit 1 ;;
-          esac
-          grep -qxF "$REPOSITORY" publishers.txt \
-            || { echo "::error::$REPOSITORY is not listed in publishers.txt"; exit 1; }
-          [[ "$TAG" =~ ^v?[0-9][0-9A-Za-z.+~-]*$ ]] || { echo "::error::malformed tag '$TAG'"; exit 1; }
+        run: ./scripts/validate-publish-request.sh
 
       - name: Set up Nix
         uses: metacraft-labs/metacraft-github-actions/setup-nix@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
@@ -205,3 +199,128 @@ jobs:
           nix shell nixpkgs#gnupg -c gpgconf --kill all || true
           find "$GNUPGHOME" -type f -exec shred -u {} + 2>/dev/null || true
           rm -rf "$GNUPGHOME"
+
+  scoop:
+    # The organisation's Scoop bucket is bucket/ on this repository's default
+    # branch: `scoop bucket add metacraft https://github.com/metacraft-labs/metacraft-desktop-packages`.
+    # For a product with a config in scoop/<repo>.json, this verifies the
+    # release's Windows zip against its SHA256SUMS and writes bucket/<app>.json
+    # (scripts/scoop-manifest.py).
+    #
+    # How the manifest reaches the bucket, and why:
+    # - It has to be the DEFAULT branch. `scoop bucket add` clones a repository
+    #   without a branch argument, so a separate `bucket` branch would be
+    #   invisible to every user.
+    # - `dev` accepts changes only through pull requests, with no bypass. This
+    #   job therefore opens a PR from scoop/<app>-<version> and merges it
+    #   itself. The rule needs no approval and no status check, so nothing waits
+    #   on a human, the rule is not weakened, and every bucket change is a
+    #   reviewable PR in the history.
+    # - It is a separate job so that only it holds a token that can write, and
+    #   it never sees the signing key or the bucket credentials. It runs in the
+    #   same serialized run as `publish` (the workflow-level concurrency group),
+    #   so two publications never race on bucket/.
+    # - It does not wait for `publish`: a Linux-repository failure does not hold
+    #   back Windows users, and a release without .deb/.rpm still reaches Scoop.
+    needs: choose
+    runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
+      TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate the request
+        run: ./scripts/validate-publish-request.sh
+
+      - name: Find the product's Scoop config
+        id: config
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          config="scoop/${REPOSITORY#*/}.json"
+          if [ ! -f "$config" ]; then
+            echo "::notice::$REPOSITORY has no $config; nothing to publish to Scoop"
+            exit 0
+          fi
+          if [ "$(gh release view "$TAG" -R "$REPOSITORY" --json isPrerelease -q .isPrerelease)" = true ]; then
+            echo "::notice::$REPOSITORY $TAG is a pre-release; the Scoop bucket carries releases only"
+            exit 0
+          fi
+          echo "path=$config" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Nix
+        if: steps.config.outputs.path
+        uses: metacraft-labs/metacraft-github-actions/setup-nix@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
+        with:
+          gh-token: ${{ github.token }}
+
+      - name: Write the manifest
+        id: manifest
+        if: steps.config.outputs.path
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIG: ${{ steps.config.outputs.path }}
+        run: |
+          set -euo pipefail
+          mkdir incoming-windows
+          if gh release view "$TAG" -R "$REPOSITORY" --json assets -q '.assets[].name' | grep -q '\.zip$'; then
+            gh release download "$TAG" -R "$REPOSITORY" -D incoming-windows -p '*.zip' -p SHA256SUMS
+          fi
+          # The bucket is edited on the current default branch, whatever ref
+          # this workflow was dispatched from.
+          git fetch --no-tags --depth=1 origin "+refs/heads/${{ github.event.repository.default_branch }}:refs/remotes/origin/bucket-base"
+          git worktree add --detach "$RUNNER_TEMP/bucket" origin/bucket-base
+          nix shell nixpkgs#python3 -c python3 scripts/scoop-manifest.py \
+            --config "$CONFIG" --tag "$TAG" --release-dir incoming-windows \
+            --bucket "$RUNNER_TEMP/bucket/bucket" | tee "$RUNNER_TEMP/scoop-outcome"
+          echo "app=$(nix shell nixpkgs#python3 -c python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["app"])' "$CONFIG")" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git -C "$RUNNER_TEMP/bucket" status --porcelain -- bucket)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge the manifest into the bucket
+        if: steps.manifest.outputs.changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APP: ${{ steps.manifest.outputs.app }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/bucket"
+          version="${TAG#v}"
+          branch="scoop/$APP-$version"
+          git add bucket
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "scoop: $APP $version" \
+              -m "From $REPOSITORY $TAG, verified against the release's SHA256SUMS."
+          # The branch belongs to this job; a retried run replaces it.
+          git push --force origin "HEAD:refs/heads/$branch"
+          if [ -z "$(gh pr list --head "$branch" --base "$BASE" --state open --json number -q '.[].number')" ]; then
+            gh pr create --base "$BASE" --head "$branch" --title "scoop: $APP $version" \
+              --body "Scoop manifest for [$REPOSITORY $TAG](https://github.com/$REPOSITORY/releases/tag/$TAG), written by [publish-release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The zip was verified against the release's \`SHA256SUMS\`."
+          fi
+          # GitHub computes mergeability asynchronously after the PR opens.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$branch" --rebase --delete-branch; then exit 0; fi
+            echo "merge attempt $attempt did not succeed; retrying"
+            sleep 15
+          done
+          echo "::error::could not merge the Scoop manifest PR for $branch"
+          exit 1
+
+      - name: Summary
+        if: always() && steps.config.outputs.path
+        run: |
+          {
+            echo "### Scoop bucket: $REPOSITORY $TAG"
+            echo
+            cat "$RUNNER_TEMP/scoop-outcome" 2>/dev/null || echo "no outcome recorded"
+          } >> "$GITHUB_STEP_SUMMARY"
