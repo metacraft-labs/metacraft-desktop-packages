@@ -30,6 +30,11 @@ and signs the indices over every package already published, so publishing
 one product never removes another. Runs are serialized and never cancelled.
 A product must be listed in [`publishers.txt`](publishers.txt).
 
+CodeTracer publishes this way too. Its `.deb`/`.rpm` used to be built here
+from recipes by `rpm-and-deb.yaml`, which rebuilt the indices from that run's
+packages alone; that workflow and its `rpm/SPECS` recipes are retired. The
+Arch PKGBUILD and the Gentoo ebuild are still recipes here.
+
 Apt publishes SHA256/SHA512 by-hash indices before its signed entrypoint.
 Earlier hashed apt and RPM metadata remain available for clients that still
 hold a previous signed entrypoint. Mutable entrypoints request revalidation;

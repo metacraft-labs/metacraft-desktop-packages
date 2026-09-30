@@ -40,21 +40,31 @@
 	</head>
 	<body>
 		<h1>Welcome to the Metacraft Labs RPM repository</h1>
-		<p>This repository is used for hosting all Metacraft Labs packages for applications such as <a href="https://codetracer.com">CodeTracer</a>.</p>
-		<p>To use this repository add the following configuration to <code class="inline-code">/etc/yum.repos.d/metacraft-rpms.repo</code> :</p>
-		<pre class="sourceCode toml"><code class="sourceCode toml">[metacraft-rpms]
-name=MetacraftRPM
-baseurl=https://rpm.codetracer.com/
+		<p>One RPM repository for every Metacraft Labs product, such as <a href="https://codetracer.com">CodeTracer</a> and <a href="https://reprobuild.com">Reprobuild</a>. It is signed with the organisation's package-repository key, <code class="inline-code">22F8 0A4A 65B0 8E36 AEA8  9F57 E127 BF3A C4CE 1719</code>.</p>
+
+		<p>The simplest way to use it is a product's installer, which registers this repository and verifies the key for you:</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">curl -fsSL https://get.codetracer.com/sh | sh</code></pre>
+
+		<p>To register it by hand, install the key (its SHA-256 is <code class="inline-code">aa89db2215ce0b33e029b8302d4d94fac742b92d279f178437abe10d9b54c988</code>):</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">root # curl -fsSL -o /usr/share/keyrings/metacraft-labs-archive-keyring.asc https://rpm.metacraft-labs.com/keys/metacraft-labs-archive-keyring.asc
+root # rpm --import /usr/share/keyrings/metacraft-labs-archive-keyring.asc</code></pre>
+
+		<p>then write <code class="inline-code">/etc/yum.repos.d/metacraft-labs.repo</code>:</p>
+		<pre class="sourceCode toml"><code class="sourceCode toml">[metacraft-labs]
+name=Metacraft Labs
+baseurl=https://rpm.metacraft-labs.com
 enabled=1
 gpgcheck=1
-gpgkey=https://rpm.codetracer.com/rpmkey.pub</code></pre>
-		<h2>Available packages:</h2>
+repo_gpgcheck=1
+gpgkey=file:///usr/share/keyrings/metacraft-labs-archive-keyring.asc</code></pre>
+		<p><code class="inline-code">rpm.codetracer.com</code> redirects here, but a <code class="inline-code">metacraft-rpms.repo</code> that names it with the old CodeTracer key must be replaced by the one above.</p>
+		<h2>Packages include:</h2>
 		<ul>
-			<li>codetracer - Provides <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
-			<li>codetracer-rr-backend - Provides systems programming language recording functionality using a proprietary backend based on the rr debugger</li>
+			<li>codetracer - <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
+			<li>reprobuild - <a href="https://github.com/metacraft-labs/reprobuild">Reprobuild</a>, a reproducible build system</li>
 		</ul>
 		<footer>
-			<p>Copyright &#169; Metacraft Labs Ltd. 2025</p>
+			<p>Copyright &#169; Metacraft Labs Ltd. 2026</p>
 		</footer>
 	</body>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark-reasonable.min.css">

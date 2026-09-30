@@ -1,3 +1,4 @@
+metacraft-labs/codetracer
 metacraft-labs/gosti
 metacraft-labs/io-mon
 metacraft-labs/reprobuild
