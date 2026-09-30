@@ -268,6 +268,10 @@ jobs:
           CONFIG: ${{ steps.config.outputs.path }}
         run: |
           set -euo pipefail
+          # setup-nix exports a GitHub Authorization header through
+          # GIT_CONFIG_*; checkout already configured one, and GitHub answers
+          # two with a 400. Git here uses checkout's (this job's token).
+          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
           mkdir incoming-windows
           if gh release view "$TAG" -R "$REPOSITORY" --json assets -q '.assets[].name' | grep -q '\.zip$'; then
             gh release download "$TAG" -R "$REPOSITORY" -D incoming-windows -p '*.zip' -p SHA256SUMS
@@ -293,6 +297,8 @@ jobs:
           BASE: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
+          # See "Write the manifest": one Authorization header, checkout's.
+          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
           cd "$RUNNER_TEMP/bucket"
           version="${TAG#v}"
           branch="scoop/$APP-$version"
