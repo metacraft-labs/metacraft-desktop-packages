@@ -79,7 +79,8 @@ jobs:
           Get-Content "$bucket\bucket\reprobuild.json"
           git -C $bucket add bucket
           git -C $bucket -c user.name=ci -c user.email=ci@example.invalid commit -q -m bucket
-          "BUCKET_URL=$bucket" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          # Scoop validates the URL with `git ls-remote`, which wants forward slashes.
+          "BUCKET_URL=$($bucket -replace '\\','/')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Use the live bucket (dispatch)
         if: github.event_name != 'pull_request'
