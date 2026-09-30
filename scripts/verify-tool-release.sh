@@ -23,6 +23,7 @@ work="$(mktemp -d "$PWD/repository-check.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 mkdir -p test-logs
 cp keys/metacraft-labs-archive-keyring.{gpg,asc} "$work/"
+cp scripts/verify-io-mon-install.py "$work/"
 gh release download "v$version" -R "metacraft-labs/$product" -D "$work" \
   -p SHA256SUMS -p "$product-$version-linux-x86_64.tar.gz" -p '*.deb' -p '*.rpm'
 (cd "$work" && sha256sum --check --ignore-missing SHA256SUMS)
@@ -106,7 +107,11 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
         dnf install -y "$PACKAGE-$VERSION-1.x86_64"
       fi
       python3 /payload/check-payload.py
-      "/usr/bin/$PRODUCT" --help >/dev/null
+      if [ "$PRODUCT" = io-mon ]; then
+        python3 /payload/verify-io-mon-install.py
+      else
+        "/usr/bin/$PRODUCT" --help >/dev/null
+      fi
     ' > "$log" 2>&1; then
     tail -100 "$log" >&2
     exit 1
