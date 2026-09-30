@@ -58,8 +58,7 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
       mkdir -p /tmp/packages
       cd /tmp/packages
       if command -v apt-get >/dev/null; then
-        . /etc/os-release
-        if [ "$ID:$VERSION_ID" = debian:11 ]; then
+        if ( . /etc/os-release; [ "$ID:$VERSION_ID" = debian:11 ] ); then
           # Bullseye LTS ended on 2026-08-31. Its live security index names
           # deleted files; retain this compatibility target with signed,
           # fixed snapshot prerequisites. Only those historical sources
