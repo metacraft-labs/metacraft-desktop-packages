@@ -62,10 +62,22 @@ work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/conf"
 sed "s/^#\?SignWith:.*/SignWith: $key_id/" "$here/debian/conf/distributions" > "$work/conf/distributions"
 echo verbose > "$work/conf/options"
-# Rebuild from what is published, then add what is new. A deb present in both
-# is the same bytes (checked above), and reprepro accepts it once.
+# Rebuild from what is published plus what is new, feeding reprepro only the
+# NEWEST version of each package. A suite carries one version per package,
+# and reprepro refuses to include an older version after a newer one, so
+# the pool's older files (the live pool keeps every codetracer version) are
+# left where they are, unreferenced, and never re-included. A deb present
+# in both sets is the same bytes (checked above).
 existing_debs=("$deb_dir"/pool/*/*/*/*.deb)
-for deb in "${existing_debs[@]}" "${new_debs[@]}"; do
+newest_debs=()
+while IFS=$'\t' read -r _name _path; do
+  newest_debs+=("$_path")
+done < <(
+  for deb in "${existing_debs[@]}" "${new_debs[@]}"; do
+    printf '%s\t%s\t%s\n' "$(dpkg-deb -f "$deb" Package)" "$(dpkg-deb -f "$deb" Version)" "$deb"
+  done | sort -t$'\t' -k1,1 -k2,2V | awk -F'\t' '{last[$1]=$3} END {for (n in last) print n "\t" last[n]}'
+)
+for deb in "${newest_debs[@]}"; do
   reprepro -b "$work" --keepunreferencedfiles includedeb stable "$deb"
 done
 if [ ${#existing_debs[@]} -gt 0 ] || [ ${#new_debs[@]} -gt 0 ]; then
@@ -75,12 +87,32 @@ if [ ${#existing_debs[@]} -gt 0 ] || [ ${#new_debs[@]} -gt 0 ]; then
   cp -rn "$work/pool/." "$deb_dir/pool/"
 fi
 
-# The index must list every package that is in the pool: that is the
-# property earlier publishers lacked.
-listed="$(zcat "$deb_dir"/dists/stable/main/binary-*/Packages.gz 2>/dev/null | grep -c '^Filename:' || true)"
-pooled="$(find "$deb_dir/pool" -name '*.deb' | wc -l)"
-[ "$listed" -eq "$pooled" ] || { echo "apt index lists $listed packages but pool holds $pooled" >&2; exit 1; }
-echo "apt: $listed package(s) indexed"
+# Every PACKAGE in the pool must be in the index: that is the property
+# earlier publishers lacked (each rebuilt the index from its own run and
+# dropped the other products). Compared by package NAME, not by file: a
+# suite carries one version of each package, so older versions stay in the
+# pool unreferenced (the live pool holds five codetracer versions) and the
+# index lists only the newest. Also require the index to carry the newest
+# pooled version of each name.
+# name<TAB>version of every pooled .deb, and of every index entry.
+pool_nv="$(find "$deb_dir/pool" -name '*.deb' | while read -r f; do printf '%s\t%s\n' "$(dpkg-deb -f "$f" Package)" "$(dpkg-deb -f "$f" Version)"; done)"
+index_nv="$(zcat "$deb_dir"/dists/stable/main/binary-*/Packages.gz 2>/dev/null | awk '/^Package: /{n=$2} /^Version: /{print n "\t" $2}')"
+pool_names="$(printf '%s\n' "$pool_nv" | cut -f1 | sort -u)"
+index_names="$(printf '%s\n' "$index_nv" | cut -f1 | sort -u)"
+if [ "$pool_names" != "$index_names" ]; then
+  echo "apt index is missing packages that are in the pool:" >&2
+  comm -23 <(printf '%s\n' "$pool_names") <(printf '%s\n' "$index_names") >&2
+  exit 1
+fi
+# The index must carry the newest pooled version of each package.
+newest_pool="$(printf '%s\n' "$pool_nv" | sort -t"$(printf '\t')" -k1,1 -k2,2V | awk -F'\t' '{v[$1]=$2} END {for (n in v) print n "\t" v[n]}' | sort)"
+newest_index="$(printf '%s\n' "$index_nv" | sort -t"$(printf '\t')" -k1,1 -k2,2V | awk -F'\t' '{v[$1]=$2} END {for (n in v) print n "\t" v[n]}' | sort)"
+if [ "$newest_pool" != "$newest_index" ]; then
+  echo "apt index does not carry the newest pooled version of each package:" >&2
+  diff <(printf '%s\n' "$newest_pool") <(printf '%s\n' "$newest_index") >&2 || true
+  exit 1
+fi
+echo "apt: $(printf '%s\n' "$index_names" | grep -c .) package(s) indexed at their newest versions: $(printf '%s\n' "$newest_index" | tr '\t\n' '= ')"
 
 # ── RPM ──────────────────────────────────────────────────────────────────────
 new_rpms=("$incoming"/*.rpm)
