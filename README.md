@@ -24,6 +24,11 @@ and signs the indices over every package already published, so publishing
 one product never removes another. Runs are serialized and never cancelled.
 A product must be listed in [`publishers.txt`](publishers.txt).
 
+Apt publishes SHA256/SHA512 by-hash indices before its signed entrypoint.
+Earlier hashed apt and RPM metadata remain available for clients that still
+hold a previous signed entrypoint. Mutable entrypoints request revalidation;
+immutable indices can be cached without mixing releases.
+
 Publication and live installation checks use the shared `CI_RUNNER_MODE`
 selector. This public repository defaults to standard `ubuntu-24.04`; an
 org/repository override selects the existing `[self-hosted, linux, x64]`
@@ -57,6 +62,9 @@ After publishing Gosti, io-mon or RunQuota, dispatch
 `verify-tool-release.yaml` with the product name and version (without `v`).
 It installs that exact version from the public apt/RPM repositories in
 Debian 11, Ubuntu 24.04 and AlmaLinux 9 containers on native Linux x86_64.
+Debian 11 uses signed Debian snapshots from 2026-08-31 for its test
+prerequisites, because its live security index names removed packages after
+LTS ended. The Metacraft repository is always read live.
 
 The check uses the committed repository trust key, downloads all required Linux
 architectures through apt/dnf, compares their packages with the GitHub release,

@@ -49,6 +49,8 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
   docker pull "$image"
   docker image inspect --format '{{index .RepoDigests 0}}' "$image" >> test-logs/repository-images.txt
   log="test-logs/repository-${product}-${image//:/-}.log"
+  # The container expands these variables, after Docker supplies its environment.
+  # shellcheck disable=SC2016
   if ! docker run --rm -v "$work:/payload:ro" \
     -e PRODUCT="$product" -e PACKAGE="$package" -e VERSION="$version" \
     -e DEB_ARCHITECTURES="$deb_architectures" -e RPM_ARCHITECTURES="$rpm_architectures" \
@@ -56,6 +58,19 @@ for image in debian:11 ubuntu:24.04 almalinux:9; do
       mkdir -p /tmp/packages
       cd /tmp/packages
       if command -v apt-get >/dev/null; then
+        . /etc/os-release
+        if [ "$ID:$VERSION_ID" = debian:11 ]; then
+          # Bullseye LTS ended on 2026-08-31. Its live security index names
+          # deleted files; retain this compatibility target with signed,
+          # fixed snapshot prerequisites. Only those historical sources
+          # ignore Valid-Until. The Metacraft feed below remains live.
+          rm -f /etc/apt/sources.list.d/debian.sources
+          printf "%s\n" \
+            "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260831T000000Z/ bullseye main" \
+            "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260831T000000Z/ bullseye-security main" \
+            > /etc/apt/sources.list
+          cat /etc/apt/sources.list
+        fi
         apt-get update -qq
         apt-get install -y --no-install-recommends ca-certificates python3 libstdc++6
         cp /payload/metacraft-labs-archive-keyring.gpg /usr/share/keyrings/metacraft-labs.gpg

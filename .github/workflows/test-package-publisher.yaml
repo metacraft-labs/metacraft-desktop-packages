@@ -28,7 +28,7 @@ jobs:
       - name: Validate workflows and shell
         run: |
           nix shell nixpkgs#actionlint nixpkgs#shellcheck nixpkgs#python3 -c python3 scripts/check-publisher-workflows.py
-          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh
+          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh
       - name: Test real archives and repository signatures
         run: |
-          nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py
+          nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py --apt-client

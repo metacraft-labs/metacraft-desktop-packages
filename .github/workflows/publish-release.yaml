@@ -133,7 +133,7 @@ jobs:
 
       - name: Add the packages and regenerate the indices
         run: |
-          nix shell nixpkgs#reprepro nixpkgs#createrepo_c nixpkgs#rpm nixpkgs#gnupg nixpkgs#dpkg -c \
+          nix shell nixpkgs#reprepro nixpkgs#createrepo_c nixpkgs#rpm nixpkgs#gnupg nixpkgs#dpkg nixpkgs#python3 -c \
             ./scripts/publish-into-repositories.sh \
               --incoming incoming --deb-dir repo-deb --rpm-dir repo-rpm \
               --key-id "${{ steps.key.outputs.fpr }}"
@@ -159,7 +159,17 @@ jobs:
             r="s3://${{ vars.RPM_CODETRACER_BUCKET_NAME }}"
             deb s3 sync repo-deb/pool/ "$d/pool/" --only-show-errors
             rpm s3 sync repo-rpm/RPMS/ "$r/RPMS/" --only-show-errors
-            deb s3 sync repo-deb/dists/ "$d/dists/" --delete --only-show-errors
+            # Publish immutable indices before mutable signed entrypoints.
+            # Keep older hashed files for clients holding previous metadata.
+            deb s3 sync repo-deb/dists/ "$d/dists/" --exclude "*" --include "*/by-hash/*" \
+              --cache-control "public,max-age=31536000,immutable" --only-show-errors
+            deb s3 sync repo-deb/dists/ "$d/dists/" --exclude "*/by-hash/*" \
+              --exclude "stable/Release" --exclude "stable/Release.gpg" --exclude "stable/InRelease" \
+              --cache-control "no-cache" --only-show-errors
+            for f in Release.gpg Release InRelease; do
+              deb s3 cp "repo-deb/dists/stable/$f" "$d/dists/stable/$f" \
+                --cache-control "no-cache" --only-show-errors
+            done
             # The trust anchor, verbatim from this repository, under the name
             # installers use and under the names existing users already have.
             for b in deb rpm; do
@@ -170,7 +180,12 @@ jobs:
             deb s3 cp keys/metacraft-labs-archive-keyring.asc "$d/keys/public.asc" --only-show-errors
             deb s3 cp repo-deb/index.html "$d/index.html" --only-show-errors
             deb s3 cp repo-deb/favicon.png "$d/favicon.png" --only-show-errors
-            rpm s3 sync repo-rpm/repodata/ "$r/repodata/" --delete --only-show-errors
+            rpm s3 sync repo-rpm/repodata/ "$r/repodata/" --exclude "repomd.xml" --exclude "repomd.xml.asc" \
+              --cache-control "public,max-age=31536000,immutable" --only-show-errors
+            for f in repomd.xml.asc repomd.xml; do
+              rpm s3 cp "repo-rpm/repodata/$f" "$r/repodata/$f" \
+                --cache-control "no-cache" --only-show-errors
+            done
             rpm s3 cp keys/metacraft-labs-archive-keyring.asc "$r/rpmkey.pub" --only-show-errors
             rpm s3 cp repo-rpm/favicon.png "$r/favicon.png" --only-show-errors
           '
