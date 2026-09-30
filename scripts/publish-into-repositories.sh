@@ -62,57 +62,66 @@ work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/conf"
 sed "s/^#\?SignWith:.*/SignWith: $key_id/" "$here/debian/conf/distributions" > "$work/conf/distributions"
 echo verbose > "$work/conf/options"
-# Rebuild from what is published plus what is new, feeding reprepro only the
-# NEWEST version of each package. A suite carries one version per package,
-# and reprepro refuses to include an older version after a newer one, so
-# the pool's older files (the live pool keeps every codetracer version) are
-# left where they are, unreferenced, and never re-included. A deb present
-# in both sets is the same bytes (checked above).
+# An apt suite carries the newest version of each package AND architecture.
+# Keep older files in the published pool, but never feed a downgrade to
+# reprepro. dpkg owns Debian version ordering (including epochs and tildes).
 existing_debs=("$deb_dir"/pool/*/*/*/*.deb)
-newest_debs=()
-while IFS=$'\t' read -r _name _path; do
-  newest_debs+=("$_path")
-done < <(
-  for deb in "${existing_debs[@]}" "${new_debs[@]}"; do
-    printf '%s\t%s\t%s\n' "$(dpkg-deb -f "$deb" Package)" "$(dpkg-deb -f "$deb" Version)" "$deb"
-  done | sort -t$'\t' -k1,1 -k2,2V | awk -F'\t' '{last[$1]=$3} END {for (n in last) print n "\t" last[n]}'
-)
-for deb in "${newest_debs[@]}"; do
-  reprepro -b "$work" --keepunreferencedfiles includedeb stable "$deb"
+newest_debs=() newest_keys=() newest_versions=()
+for deb in "${existing_debs[@]}" "${new_debs[@]}"; do
+  pkg="$(dpkg-deb -f "$deb" Package)"
+  arch="$(dpkg-deb -f "$deb" Architecture)"
+  version="$(dpkg-deb -f "$deb" Version)"
+  key="$pkg/$arch"
+  index=0
+  while [ "$index" -lt "${#newest_keys[@]}" ] && [ "${newest_keys[$index]}" != "$key" ]; do
+    index=$((index + 1))
+  done
+  if [ "$index" -lt "${#newest_keys[@]}" ]; then
+    if dpkg --compare-versions "$version" eq "${newest_versions[$index]}"; then
+      cmp -s "$deb" "${newest_debs[$index]}" || {
+        echo "refusing different bytes for $key version $version" >&2; exit 1;
+      }
+      continue
+    fi
+    if dpkg --compare-versions "$version" lt "${newest_versions[$index]}"; then
+      continue
+    fi
+  fi
+  newest_keys[index]="$key"
+  newest_versions[index]="$version"
+  newest_debs[index]="$deb"
 done
-if [ ${#existing_debs[@]} -gt 0 ] || [ ${#new_debs[@]} -gt 0 ]; then
+: > "$work/expected-packages"
+for deb in "${newest_debs[@]}"; do
+  # These binary control fields are recommended, not mandatory. Supply
+  # archive defaults only when absent; do not rewrite a released archive.
+  overrides=()
+  [ -n "$(dpkg-deb -f "$deb" Section)" ] || overrides+=(--section utils)
+  [ -n "$(dpkg-deb -f "$deb" Priority)" ] || overrides+=(--priority optional)
+  reprepro -b "$work" --keepunreferencedfiles "${overrides[@]}" includedeb stable "$deb"
+  printf '%s\t%s\t%s\n' "$(dpkg-deb -f "$deb" Package)" \
+    "$(dpkg-deb -f "$deb" Architecture)" "$(dpkg-deb -f "$deb" Version)" >> "$work/expected-packages"
+done
+if [ ${#newest_debs[@]} -gt 0 ]; then
+  # Check each architecture and version before replacing the published tree.
+  # Architecture: all appears in each binary index, hence sort -u.
+  gzip -dc "$work"/dists/stable/main/binary-*/Packages.gz | awk '
+    /^Package: / { name=$2 }
+    /^Version: / { version=$2 }
+    /^Architecture: / { arch=$2 }
+    /^$/ { if (name != "") print name "\t" arch "\t" version; name="" }
+    END { if (name != "") print name "\t" arch "\t" version }
+  ' | sort -u > "$work/indexed-packages"
+  sort -u "$work/expected-packages" > "$work/expected-sorted"
+  diff -u "$work/expected-sorted" "$work/indexed-packages" || {
+    echo "apt index does not retain the newest version of every package architecture" >&2; exit 1;
+  }
   rm -rf "$deb_dir/dists"
   cp -r "$work/dists" "$deb_dir/dists"
   mkdir -p "$deb_dir/pool"
   cp -rn "$work/pool/." "$deb_dir/pool/"
 fi
-
-# Every PACKAGE in the pool must be in the index: that is the property
-# earlier publishers lacked (each rebuilt the index from its own run and
-# dropped the other products). Compared by package NAME, not by file: a
-# suite carries one version of each package, so older versions stay in the
-# pool unreferenced (the live pool holds five codetracer versions) and the
-# index lists only the newest. Also require the index to carry the newest
-# pooled version of each name.
-# name<TAB>version of every pooled .deb, and of every index entry.
-pool_nv="$(find "$deb_dir/pool" -name '*.deb' | while read -r f; do printf '%s\t%s\n' "$(dpkg-deb -f "$f" Package)" "$(dpkg-deb -f "$f" Version)"; done)"
-index_nv="$(zcat "$deb_dir"/dists/stable/main/binary-*/Packages.gz 2>/dev/null | awk '/^Package: /{n=$2} /^Version: /{print n "\t" $2}')"
-pool_names="$(printf '%s\n' "$pool_nv" | cut -f1 | sort -u)"
-index_names="$(printf '%s\n' "$index_nv" | cut -f1 | sort -u)"
-if [ "$pool_names" != "$index_names" ]; then
-  echo "apt index is missing packages that are in the pool:" >&2
-  comm -23 <(printf '%s\n' "$pool_names") <(printf '%s\n' "$index_names") >&2
-  exit 1
-fi
-# The index must carry the newest pooled version of each package.
-newest_pool="$(printf '%s\n' "$pool_nv" | sort -t"$(printf '\t')" -k1,1 -k2,2V | awk -F'\t' '{v[$1]=$2} END {for (n in v) print n "\t" v[n]}' | sort)"
-newest_index="$(printf '%s\n' "$index_nv" | sort -t"$(printf '\t')" -k1,1 -k2,2V | awk -F'\t' '{v[$1]=$2} END {for (n in v) print n "\t" v[n]}' | sort)"
-if [ "$newest_pool" != "$newest_index" ]; then
-  echo "apt index does not carry the newest pooled version of each package:" >&2
-  diff <(printf '%s\n' "$newest_pool") <(printf '%s\n' "$newest_index") >&2 || true
-  exit 1
-fi
-echo "apt: $(printf '%s\n' "$index_names" | grep -c .) package(s) indexed at their newest versions: $(printf '%s\n' "$newest_index" | tr '\t\n' '= ')"
+echo "apt: ${#newest_debs[@]} package architecture(s) indexed at their newest versions"
 
 # ── RPM ──────────────────────────────────────────────────────────────────────
 new_rpms=("$incoming"/*.rpm)

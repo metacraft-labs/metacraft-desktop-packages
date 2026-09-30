@@ -29,6 +29,7 @@ permissions:
 concurrency:
   group: org-package-repositories
   cancel-in-progress: false
+  queue: max
 
 jobs:
   choose:
@@ -96,6 +97,8 @@ jobs:
           RPM_ENDPOINT: ${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }}
         run: |
           set -euo pipefail
+          # Bucket variables expand in the inner shell.
+          # shellcheck disable=SC2016
           nix shell nixpkgs#awscli2 -c sh -c '
             AWS_ACCESS_KEY_ID=$DEB_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$DEB_AWS_SECRET_ACCESS_KEY \
               aws --endpoint-url="$DEB_ENDPOINT" s3 sync "s3://${{ vars.DEB_CODETRACER_BUCKET_NAME }}/pool/" repo-deb/pool/ --only-show-errors
@@ -147,6 +150,8 @@ jobs:
           RPM_ENDPOINT: ${{ secrets.CODETRACER_RPM_BUCKET_S3_URL }}
         run: |
           set -euo pipefail
+          # Bucket variables expand in the inner shell.
+          # shellcheck disable=SC2016
           nix shell nixpkgs#awscli2 -c sh -c '
             deb() { AWS_ACCESS_KEY_ID=$DEB_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$DEB_AWS_SECRET_ACCESS_KEY aws --endpoint-url="$DEB_ENDPOINT" "$@"; }
             rpm() { AWS_ACCESS_KEY_ID=$RPM_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$RPM_AWS_SECRET_ACCESS_KEY aws --endpoint-url="$RPM_ENDPOINT" "$@"; }
@@ -175,7 +180,7 @@ jobs:
           {
             echo "### Published $REPOSITORY $TAG"
             echo
-            (cd incoming && ls -1 *.deb *.rpm 2>/dev/null | sed 's/^/- /')
+            (cd incoming && shopt -s nullglob && packages=(*.deb *.rpm) && printf -- '- %s\n' "${packages[@]}")
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the key
