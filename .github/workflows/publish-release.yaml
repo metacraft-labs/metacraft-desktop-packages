@@ -132,7 +132,7 @@ jobs:
               --incoming incoming --deb-dir repo-deb --rpm-dir repo-rpm \
               --key-id "${{ steps.key.outputs.fpr }}"
           cp favicon.png debian/index.html repo-deb/
-          cp favicon.png repo-rpm/
+          cp favicon.png rpm/index.html repo-rpm/
 
       - name: Upload packages, then indices
         env:
@@ -182,6 +182,7 @@ jobs:
             done
             rpm s3 cp keys/metacraft-labs-archive-keyring.asc "$r/rpmkey.pub" --only-show-errors
             rpm s3 cp repo-rpm/favicon.png "$r/favicon.png" --only-show-errors
+            rpm s3 cp repo-rpm/index.html "$r/index.html" --only-show-errors
           '
 
       - name: Summary

@@ -40,22 +40,29 @@
 	</head>
 	<body>
 		<h1>Welcome to the Metacraft Labs DEB repository</h1>
-		<p>This repository is used for hosting all Metacraft Labs packages for applications such as <a href="https://codetracer.com">CodeTracer</a>.</p>
-		
-		<p>To use this repository use the following configuration to <code class="inline-code">/etc/apt/sources.list.d/metacraft-debs.list</code> :</p>
-		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">deb [arch=amd64] https://deb.codetracer.com stable main</code></pre>
-		
-		<p>After that, install our PGP key in apt by running the following command:</p>
-		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">root # wget "https://deb.codetracer.com/keys/public.asc" &amp;&amp; mv public.asc /etc/apt/trusted.gpg.d/metacraft-debs.asc</code></pre>
+		<p>One apt repository for every Metacraft Labs product, such as <a href="https://codetracer.com">CodeTracer</a> and <a href="https://reprobuild.com">Reprobuild</a>. It is signed with the organisation's package-repository key, <code class="inline-code">22F8 0A4A 65B0 8E36 AEA8  9F57 E127 BF3A C4CE 1719</code>.</p>
 
-		<p>After adding the repository make sure to run <code class="inline-code">apt update</code>!</p>
-		<h2>Available packages:</h2>
+		<p>The simplest way to use it is a product's installer, which registers this repository and verifies the key for you:</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">curl -fsSL https://get.codetracer.com/sh | sh</code></pre>
+
+		<p>To register it by hand, install the key (its SHA-256 is <code class="inline-code">aa89db2215ce0b33e029b8302d4d94fac742b92d279f178437abe10d9b54c988</code>):</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">root # curl -fsSL -o /usr/share/keyrings/metacraft-labs-archive-keyring.asc https://deb.metacraft-labs.com/keys/metacraft-labs-archive-keyring.asc</code></pre>
+
+		<p>then write <code class="inline-code">/etc/apt/sources.list.d/metacraft-labs.sources</code>:</p>
+		<pre class="sourceCode language-plaintext"><code class="sourceCode language-plaintext">Types: deb
+URIs: https://deb.metacraft-labs.com
+Suites: stable
+Components: main
+Signed-By: /usr/share/keyrings/metacraft-labs-archive-keyring.asc</code></pre>
+
+		<p>and run <code class="inline-code">apt update</code>. <code class="inline-code">deb.codetracer.com</code> redirects here, but an entry that names it with the old CodeTracer key must be replaced by the one above.</p>
+		<h2>Packages include:</h2>
 		<ul>
-			<li>codetracer - Provides <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
-			<li>codetracer-rr-backend - Provides systems programming language recording functionality using a proprietary backend based on the rr debugger</li>
+			<li>codetracer - <a href="https://github.com/metacraft-labs/codetracer">CodeTracer</a>, a user-friendly time-travelling debugger for a wide range of programming languages</li>
+			<li>reprobuild - <a href="https://github.com/metacraft-labs/reprobuild">Reprobuild</a>, a reproducible build system</li>
 		</ul>
 		<footer>
-			<p>Copyright &#169; Metacraft Labs Ltd. 2025</p>
+			<p>Copyright &#169; Metacraft Labs Ltd. 2026</p>
 		</footer>
 	</body>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark-reasonable.min.css">
