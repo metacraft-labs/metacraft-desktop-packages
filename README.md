@@ -64,8 +64,6 @@ and compares every installed payload file with the verified release archive.
 RPM comparison uses its payload digest because repository signing changes
 the package bytes. ARM64 package metadata and downloads are checked here;
 native ARM64 execution remains a mandatory producer release check.
-io-mon 0.1.0 explicitly targets Linux x86_64 only; its ARM64 backend is
-deferred by the approved tool release specification. That exception is scoped
-to this product and version. Gosti, RunQuota and later versions retain both
-architecture checks.
+The approved first releases of Gosti, io-mon and RunQuota (0.1.0) target
+Linux x86_64 only. Later versions require both architecture checks again.
 Logs and resolved container image digests are retained as workflow artifacts.

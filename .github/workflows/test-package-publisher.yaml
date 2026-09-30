@@ -1,0 +1,34 @@
+name: Test package publisher
+
+on:
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  choose:
+    uses: metacraft-labs/devops-modules/.github/workflows/reusable-choose-runner.yml@cd73eba732b9190499ec78e1e65b0dd784507440
+    with:
+      preferred: ubuntu-24.04
+      fallback: '["self-hosted","linux","x64"]'
+  test:
+    needs: choose
+    runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: metacraft-labs/metacraft-github-actions/setup-nix@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
+        with:
+          gh-token: ${{ github.token }}
+      - name: Validate workflows and shell
+        run: |
+          nix shell nixpkgs#actionlint nixpkgs#shellcheck nixpkgs#python3 -c python3 scripts/check-publisher-workflows.py
+          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh
+      - name: Test real archives and repository signatures
+        run: |
+          nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py
