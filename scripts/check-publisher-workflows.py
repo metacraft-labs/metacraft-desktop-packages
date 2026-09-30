@@ -16,4 +16,5 @@ with tempfile.TemporaryDirectory(prefix="publisher-lint-") as temporary:
     normalized = Path(temporary) / publisher.name
     normalized.write_text(source.replace("  queue: max\n", "", 1))
     subprocess.run(["actionlint", str(normalized),
-                    str(root / ".github/workflows/test-package-publisher.yaml")], check=True)
+                    str(root / ".github/workflows/test-package-publisher.yaml"),
+                    str(root / ".github/workflows/verify-scoop-bucket.yaml")], check=True)

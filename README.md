@@ -5,6 +5,12 @@ Desktop packages for Metacraft Labs. Current formats:
 1. RPMs - Installation instructions at <https://rpm.metacraft-labs.com>
 1. Gentoo ebuilds - Installation instructions on the [metacraft-overlay](https://github.com/metacraft-labs/metacraft-overlay) repository
 1. Arch PKGBUILDs - A list of packages can be seen on [our AUR page](https://aur.archlinux.org/packages?SeB=m&K=codetracer)
+1. Scoop manifests (Windows) - this repository is the organisation's Scoop bucket:
+
+   ```powershell
+   scoop bucket add metacraft https://github.com/metacraft-labs/metacraft-desktop-packages
+   scoop install metacraft/reprobuild
+   ```
 
 ## Publishing a product release
 
@@ -35,6 +41,28 @@ org/repository override selects the existing `[self-hosted, linux, x64]`
 fallback. Publication provisions Nix explicitly. Signing credentials remain
 managed by infra's Terraform secret projection, and all publishing runs share
 the same serialized concurrency group.
+
+### The Scoop bucket
+
+[`bucket/`](bucket) is the organisation's Scoop bucket; Scoop reads manifests
+from `bucket/` on the default branch. The same `publish-release` dispatch
+fills it: when the product has a config in [`scoop/`](scoop)
+(`scoop/<repository>.json`: app name, description, the Windows zip's name,
+its top-level directory and the executables to shim) and the release is not
+a pre-release, the `scoop` job verifies the zip against the release's
+`SHA256SUMS`, checks that it contains the configured executables, and writes
+`bucket/<app>.json` (`scripts/scoop-manifest.py`).
+
+`dev` accepts changes only through pull requests, so the job opens a
+`scoop/<app>-<version>` PR and merges it itself. A re-run for the same
+release is a no-op, a different zip for a published version is refused, and
+publishing an older tag never downgrades a manifest. A product joins by
+adding its config here; nothing else changes on its side.
+
+[`verify-scoop-bucket.yaml`](.github/workflows/verify-scoop-bucket.yaml)
+installs through Scoop on Windows: on pull requests from a manifest generated
+from a real release, and when dispatched from the live bucket (optionally
+also running a product's `irm <url> | iex` installer).
 
 ### The trust anchor
 

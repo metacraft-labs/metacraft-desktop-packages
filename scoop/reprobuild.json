@@ -1,0 +1,18 @@
+{
+    "repository": "metacraft-labs/reprobuild",
+    "app": "reprobuild",
+    "description": "Reproducible build system with automatic dependency discovery and distributed execution",
+    "homepage": "https://reprobuild.com",
+    "license": "Apache-2.0",
+    "tag_prefix": "v",
+    "architecture": {
+        "64bit": {
+            "asset": "reprobuild-$version-windows-x86_64.zip",
+            "extract_dir": "reprobuild-$version-windows-x86_64"
+        }
+    },
+    "bin": [
+        "bin\\repro.exe",
+        "bin\\reprobuild.exe"
+    ]
+}

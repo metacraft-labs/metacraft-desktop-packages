@@ -28,7 +28,17 @@ jobs:
       - name: Validate workflows and shell
         run: |
           nix shell nixpkgs#actionlint nixpkgs#shellcheck nixpkgs#python3 -c python3 scripts/check-publisher-workflows.py
-          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh
+          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh scripts/validate-publish-request.sh
+      - name: Test Scoop manifest generation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A real release too: its Windows zip, as the publisher downloads it.
+          gh release download v0.2.5 -R metacraft-labs/reprobuild -D reprobuild-release \
+            -p 'reprobuild-*-windows-x86_64.zip' -p SHA256SUMS
+          nix shell nixpkgs#python3 -c python3 scripts/test-scoop-manifest.py \
+            --release-dir reprobuild-release --config scoop/reprobuild.json
       - name: Test real archives and repository signatures
         run: |
           nix shell nixpkgs#reprepro nixpkgs#dpkg nixpkgs#rpm nixpkgs#createrepo_c nixpkgs#gnupg nixpkgs#python3 -c python3 scripts/test-package-publisher.py --apt-client
