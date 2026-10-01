@@ -36,10 +36,11 @@ jobs:
           LIVE: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
-          args=()
+          # Bash 3.2 treats an empty array as unset under nounset.
+          args=(--brew "$HOMEBREW_VERIFY_BREW")
           if [ "$LIVE" = true ]; then args+=(--live); fi
           mkdir -p homebrew-logs
-          python3 scripts/verify-tool-homebrew.py --brew "$HOMEBREW_VERIFY_BREW" "${args[@]}" 2>&1 | tee homebrew-logs/install.log
+          python3 scripts/verify-tool-homebrew.py "${args[@]}" 2>&1 | tee homebrew-logs/install.log
       - name: Retain the installation log
         if: always()
         uses: actions/upload-artifact@v4
