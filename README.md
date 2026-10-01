@@ -74,7 +74,7 @@ also running a product's `irm <url> | iex` installer).
 [`verify-tool-scoop.yaml`](.github/workflows/verify-tool-scoop.yaml) exercises
 Gosti, io-mon and RunQuota through Scoop on Windows x64, and Gosti and RunQuota
 on native Windows ARM64. It compares every installed file to the release zip,
-checks native PE architecture and executable versions, and runs a real io-mon
+checks native PE architecture and released CLI commands, and runs a real io-mon
 capture with complete dependency records and exact child exit propagation.
 PRs use generated manifests; dispatch checks the published org bucket.
 

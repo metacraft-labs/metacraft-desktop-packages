@@ -1,7 +1,7 @@
 # Real Scoop installs of published artifacts; no mocks or substituted tools.
 # PRs exercise a generated local bucket. Dispatch exercises the public bucket.
 # Checks all shipped Windows architectures, exact installed payload bytes,
-# executable versions and io-mon's real file capture and child exit status.
+# released CLI commands and io-mon's real file capture and child exit status.
 param(
     [ValidateSet('64bit', 'arm64')][string]$Architecture,
     [switch]$Live
@@ -69,9 +69,20 @@ foreach ($app in $products) {
         $env:IO_MON_CLI = "$env:USERPROFILE/scoop/shims/io-mon.exe"
         python scripts/verify-io-mon-install.py
         if ($LASTEXITCODE) { throw 'installed io-mon capture failed' }
+    } elseif ($app -eq 'gosti') {
+        # Gosti 0.1.0 has no --version command. The Scoop receipt and complete
+        # byte comparison establish its version; exercise its released CLI
+        # through both installed shims without allocating a virtual machine.
+        foreach ($command in @('gosti', 'vm-harness')) {
+            $shim = "$env:USERPROFILE/scoop/shims/$command.exe"
+            $help = & $shim --help
+            if ($LASTEXITCODE -or "$help" -notmatch 'provision') { throw "$command help failed" }
+            $backends = & $shim backends
+            if ($LASTEXITCODE -or "$backends" -notmatch 'noop') { throw "$command backend listing failed" }
+            Write-Host "$command help and backend catalog passed"
+        }
     } else {
-        $commands = if ($app -eq 'gosti') { @('gosti', 'vm-harness') } else { @('runquota', 'runquotad') }
-        foreach ($command in $commands) {
+        foreach ($command in @('runquota', 'runquotad')) {
             $output = & "$env:USERPROFILE/scoop/shims/$command.exe" --version
             if ($LASTEXITCODE -or "$output" -notmatch "(^|\s)$([regex]::Escape($version))(\s|$)") {
                 throw "$command version check failed: $output"
