@@ -28,7 +28,18 @@ jobs:
       - name: Validate workflows and shell
         run: |
           nix shell nixpkgs#actionlint nixpkgs#shellcheck nixpkgs#python3 -c python3 scripts/check-publisher-workflows.py
-          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh scripts/validate-publish-request.sh
+          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh scripts/validate-publish-request.sh scripts/publish-homebrew-tap.sh
+      - name: Test Homebrew publication with actual released archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for app in gosti io-mon runquota; do
+            gh release download v0.1.0 -R "metacraft-labs/$app" -D "$app-macos-release" \
+              -p '*-darwin-aarch64.tar.gz' -p SHA256SUMS
+            nix shell nixpkgs#python3 -c python3 scripts/test-homebrew-formula.py \
+              --config "homebrew/$app.json" --release-dir "$app-macos-release"
+          done
       - name: Test Scoop manifest generation
         env:
           GH_TOKEN: ${{ github.token }}

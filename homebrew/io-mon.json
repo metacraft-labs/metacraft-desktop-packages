@@ -1,0 +1,18 @@
+{
+  "repository": "metacraft-labs/io-mon",
+  "app": "io-mon",
+  "description": "Capture filesystem and IPC dependencies of a command",
+  "homepage": "https://github.com/metacraft-labs/io-mon",
+  "license": "Apache-2.0",
+  "tag_prefix": "v",
+  "bin": [
+    "bin/io-mon"
+  ],
+  "class_name": "IoMon",
+  "asset": "io-mon-$version-darwin-aarch64.tar.gz",
+  "extract_dir": "io-mon-$version-darwin-aarch64",
+  "native_files": [
+    "bin/io-mon",
+    "lib/librepro_monitor_shim.dylib"
+  ]
+}

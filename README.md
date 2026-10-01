@@ -78,6 +78,34 @@ checks native PE architecture and released CLI commands, and runs a real io-mon
 capture with complete dependency records and exact child exit propagation.
 PRs use generated manifests; dispatch checks the published org bucket.
 
+### The Homebrew tap
+
+The shared macOS tap is `metacraft-labs/homebrew-metacraft`:
+
+```sh
+brew tap metacraft-labs/metacraft
+brew install metacraft-labs/metacraft/gosti metacraft-labs/metacraft/io-mon metacraft-labs/metacraft/runquota
+```
+
+The first releases support native macOS ARM64. Configs in [`homebrew/`](homebrew)
+select each immutable release archive and its commands. The same serialized
+`publish-release` workflow verifies SHA256SUMS and Mach-O architecture, generates
+the formula and per-file metadata, installs it through Homebrew on native macOS,
+and checks every installed payload file and the formula's functional behavior.
+Homebrew may move license documents into the package prefix; their bytes are
+checked there. Executables and libraries retain their released bytes.
+
+The publisher uses a short-lived App token scoped to the tap, then promotes
+through ordinary pull requests into `dev` and its public default branch `stable`.
+Terraform owns the repository and branch protections. Publication never rewrites
+history: retries use unique branches, older releases cannot downgrade formulas,
+and a published version cannot acquire different archive bytes.
+
+[`verify-tool-homebrew.yaml`](.github/workflows/verify-tool-homebrew.yaml)
+tests all three products using generated candidates on PRs and the public tap
+when dispatched. It also checks package receipts, tap revision, native
+architecture, command links and io-mon's complete capture of a real child.
+
 ### The trust anchor
 
 [`keys/`](keys) holds the organisation's public key, committed once and

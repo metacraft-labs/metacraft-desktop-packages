@@ -3,7 +3,8 @@ name: Publish a release into the org repositories
 # Adds one product release's .deb and .rpm assets to deb.metacraft-labs.com and
 # rpm.metacraft-labs.com (the same buckets deb./rpm.codetracer.com serve), and
 # its Windows zip to the organisation's Scoop bucket, bucket/ in this
-# repository (the `scoop` job below).
+# repository (the `scoop` job below), and its macOS archive to the shared
+# Homebrew tap after a real native installation test.
 #
 # Products build their own packages from their release payload and attach them
 # to their GitHub Release; after the Release is published they dispatch this
@@ -34,6 +35,78 @@ concurrency:
   queue: max
 
 jobs:
+  homebrew:
+    # Same serial queue as apt/RPM/Scoop. Terraform owns the tap's repository,
+    # branches and protections; this job publishes only reviewed release data.
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
+      TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate the request and find its formula config
+        id: config
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/validate-publish-request.sh
+          config="homebrew/${REPOSITORY#*/}.json"
+          if [ ! -f "$config" ]; then
+            echo "::notice::$REPOSITORY has no $config; nothing to publish to Homebrew"
+            exit 0
+          fi
+          if [ "$(gh release view "$TAG" -R "$REPOSITORY" --json isPrerelease -q .isPrerelease)" = true ]; then
+            echo '::notice::Homebrew publishes stable releases only'
+            exit 0
+          fi
+          echo "path=$config" >> "$GITHUB_OUTPUT"
+      - name: Mint credentials scoped to the shared tap
+        id: token
+        if: steps.config.outputs.path
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.CI_TOKEN_PROVIDER_APP_ID }}
+          private-key: ${{ secrets.CI_TOKEN_PROVIDER_PRIVATE_KEY }}
+          owner: metacraft-labs
+          repositories: homebrew-metacraft
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v6
+        if: steps.config.outputs.path
+        with:
+          repository: metacraft-labs/homebrew-metacraft
+          ref: dev
+          fetch-depth: 0
+          token: ${{ steps.token.outputs.token }}
+          path: published-tap
+      - name: Generate and verify the formula through Homebrew
+        if: steps.config.outputs.path
+        id: formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIG: ${{ steps.config.outputs.path }}
+        run: |
+          set -euo pipefail
+          app=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["app"])' "$CONFIG")
+          # $version is the config's literal template placeholder, expanded by Python.
+          # shellcheck disable=SC2016
+          asset=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["asset"].replace("$version", sys.argv[2].removeprefix("v")))' "$CONFIG" "$TAG")
+          gh release download "$TAG" -R "$REPOSITORY" -D incoming-macos -p "$asset" -p SHA256SUMS
+          python3 scripts/homebrew-formula.py --config "$CONFIG" --tag "$TAG" \
+            --release-dir incoming-macos --tap published-tap
+          python3 scripts/verify-tool-homebrew.py --tap-path published-tap --products "$app"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+      - name: Promote the verified formula through dev and stable
+        if: steps.config.outputs.path
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP: ${{ steps.formula.outputs.app }}
+        run: bash scripts/publish-homebrew-tap.sh published-tap
+
   choose:
     # Owner: zah. Follow-up: metacraft-specs/issues/
     # 2026-09-24-ci-runner-mode-policy-conflicts-with-hosted-runner-ban.md

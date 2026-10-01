@@ -1,0 +1,32 @@
+name: Verify tool packages through Homebrew
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - homebrew/**
+      - scripts/*homebrew*.py
+      - .github/workflows/verify-tool-homebrew.yaml
+      - .github/workflows/publish-release.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install and verify released tool payloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LIVE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$LIVE" = true ]; then args+=(--live); fi
+          python3 scripts/verify-tool-homebrew.py "${args[@]}"

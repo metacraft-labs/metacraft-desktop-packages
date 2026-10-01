@@ -1,0 +1,19 @@
+{
+  "repository": "metacraft-labs/runquota",
+  "app": "runquota",
+  "description": "Host-wide resource admission and execution observations",
+  "homepage": "https://github.com/metacraft-labs/runquota",
+  "license": "MIT",
+  "tag_prefix": "v",
+  "bin": [
+    "bin/runquota",
+    "bin/runquotad"
+  ],
+  "class_name": "Runquota",
+  "asset": "runquota-$version-darwin-aarch64.tar.gz",
+  "extract_dir": "runquota-$version-darwin-aarch64",
+  "native_files": [
+    "bin/runquota",
+    "bin/runquotad"
+  ]
+}

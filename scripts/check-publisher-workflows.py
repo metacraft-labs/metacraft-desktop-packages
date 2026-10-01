@@ -18,4 +18,5 @@ with tempfile.TemporaryDirectory(prefix="publisher-lint-") as temporary:
     subprocess.run(["actionlint", str(normalized),
                     str(root / ".github/workflows/test-package-publisher.yaml"),
                     str(root / ".github/workflows/verify-scoop-bucket.yaml"),
-                    str(root / ".github/workflows/verify-tool-scoop.yaml")], check=True)
+                    str(root / ".github/workflows/verify-tool-scoop.yaml"),
+                    str(root / ".github/workflows/verify-tool-homebrew.yaml")], check=True)

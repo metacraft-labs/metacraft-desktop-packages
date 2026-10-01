@@ -1,0 +1,19 @@
+{
+  "repository": "metacraft-labs/gosti",
+  "app": "gosti",
+  "description": "Create and manage virtual machine guests",
+  "homepage": "https://github.com/metacraft-labs/gosti",
+  "license": "Apache-2.0",
+  "tag_prefix": "v",
+  "bin": [
+    "bin/gosti",
+    "bin/vm-harness"
+  ],
+  "class_name": "Gosti",
+  "asset": "gosti-$version-darwin-aarch64.tar.gz",
+  "extract_dir": "gosti-$version-darwin-aarch64",
+  "native_files": [
+    "bin/gosti",
+    "bin/vm-harness"
+  ]
+}
