@@ -1,0 +1,48 @@
+name: Verify tool packages through Scoop
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - scoop/**
+      - bucket/**
+      - scripts/scoop-manifest.py
+      - scripts/verify-tool-scoop.ps1
+      - scripts/verify-installed-archive.py
+      - scripts/verify-io-mon-install.py
+      - .github/workflows/verify-tool-scoop.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            architecture: 64bit
+          - runner: windows-11-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-RestMethod https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\install-scoop.ps1"
+          & "$env:RUNNER_TEMP\install-scoop.ps1" -RunAsAdmin
+          if ($LASTEXITCODE) { throw "Scoop setup failed: $LASTEXITCODE" }
+          "$env:USERPROFILE\scoop\shims" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Install and verify released tool payloads
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/verify-tool-scoop.ps1 -Architecture '${{ matrix.architecture }}' -Live:${{ github.event_name == 'workflow_dispatch' && '$true' || '$false' }}

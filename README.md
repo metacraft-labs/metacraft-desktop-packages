@@ -59,7 +59,9 @@ a pre-release, the `scoop` job verifies the zip against the release's
 `bucket/<app>.json` (`scripts/scoop-manifest.py`).
 
 `dev` accepts changes only through pull requests, so the job opens a
-`scoop/<app>-<version>` PR and merges it itself. A re-run for the same
+`scoop/<app>-<version>-<run>-<attempt>` PR and merges the expected head with
+a normal merge commit. Each attempt uses a new branch and an ordinary push.
+A re-run for the same
 release is a no-op, a different zip for a published version is refused, and
 publishing an older tag never downgrades a manifest. A product joins by
 adding its config here; nothing else changes on its side.
@@ -68,6 +70,13 @@ adding its config here; nothing else changes on its side.
 installs through Scoop on Windows: on pull requests from a manifest generated
 from a real release, and when dispatched from the live bucket (optionally
 also running a product's `irm <url> | iex` installer).
+
+[`verify-tool-scoop.yaml`](.github/workflows/verify-tool-scoop.yaml) exercises
+Gosti, io-mon and RunQuota through Scoop on Windows x64, and Gosti and RunQuota
+on native Windows ARM64. It compares every installed file to the release zip,
+checks native PE architecture and executable versions, and runs a real io-mon
+capture with complete dependency records and exact child exit propagation.
+PRs use generated manifests; dispatch checks the published org bucket.
 
 ### The trust anchor
 

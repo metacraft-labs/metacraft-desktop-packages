@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -168,7 +169,13 @@ def real_release_test(tmp, config, release_dir):
         return
     asset_template = config_data["architecture"]["64bit"]["asset"]
     head, tail = asset_template.split("$version")
-    version = zips[0].name[len(head):-len(tail)]
+    versions = [match.group(1) for path in zips
+                if (match := re.fullmatch(re.escape(head) + r"([0-9]+(?:\.[0-9]+)*)" +
+                                         re.escape(tail), path.name))]
+    check(len(versions) == 1, "release holds exactly one configured 64-bit archive")
+    if len(versions) != 1:
+        return
+    version = versions[0]
     tag = config_data.get("tag_prefix", "") + version
     code, out = run(config, tag, release_dir, bucket)
     check(code == 0 and "updated" in out, f"real {zips[0].name} produces a manifest ({out})")
