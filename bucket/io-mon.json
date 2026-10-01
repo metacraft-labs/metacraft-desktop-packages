@@ -1,0 +1,30 @@
+{
+    "version": "0.1.0",
+    "description": "Capture filesystem and IPC dependencies of a command",
+    "homepage": "https://github.com/metacraft-labs/io-mon",
+    "license": "Apache-2.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/metacraft-labs/io-mon/releases/download/v0.1.0/io-mon-0.1.0-windows-x86_64.zip",
+            "hash": "87f0f4ddd71d0aedd94f03e32db45942f54f95a960ab2413b73fd5084883c1fc",
+            "extract_dir": "io-mon-0.1.0-windows-x86_64"
+        }
+    },
+    "bin": [
+        "bin\\io-mon.exe"
+    ],
+    "checkver": {
+        "github": "https://github.com/metacraft-labs/io-mon"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/metacraft-labs/io-mon/releases/download/v$version/io-mon-$version-windows-x86_64.zip",
+                "extract_dir": "io-mon-$version-windows-x86_64"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS"
+        }
+    }
+}
