@@ -1,0 +1,22 @@
+{
+    "repository": "metacraft-labs/runquota",
+    "app": "runquota",
+    "description": "Host-wide resource admission and execution observations",
+    "homepage": "https://github.com/metacraft-labs/runquota",
+    "license": "MIT",
+    "tag_prefix": "v",
+    "architecture": {
+        "64bit": {
+            "asset": "runquota-$version-windows-x86_64.zip",
+            "extract_dir": "runquota-$version-windows-x86_64"
+        },
+        "arm64": {
+            "asset": "runquota-$version-windows-aarch64.zip",
+            "extract_dir": "runquota-$version-windows-aarch64"
+        }
+    },
+    "bin": [
+        "bin\\runquota.exe",
+        "bin\\runquotad.exe"
+    ]
+}

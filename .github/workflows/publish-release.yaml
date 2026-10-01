@@ -302,21 +302,22 @@ jobs:
           unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
           cd "$RUNNER_TEMP/bucket"
           version="${TAG#v}"
-          branch="scoop/$APP-$version"
+          branch="scoop/$APP-$version-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           git add bucket
           git -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -q -m "scoop: $APP $version" \
               -m "From $REPOSITORY $TAG, verified against the release's SHA256SUMS."
-          # The branch belongs to this job; a retried run replaces it.
-          git push --force origin "HEAD:refs/heads/$branch"
+          # Each attempt gets its own branch; retries preserve published history.
+          expected_head=$(git rev-parse HEAD)
+          git push origin "HEAD:refs/heads/$branch"
           if [ -z "$(gh pr list --head "$branch" --base "$BASE" --state open --json number -q '.[].number')" ]; then
             gh pr create --base "$BASE" --head "$branch" --title "scoop: $APP $version" \
               --body "Scoop manifest for [$REPOSITORY $TAG](https://github.com/$REPOSITORY/releases/tag/$TAG), written by [publish-release]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The zip was verified against the release's \`SHA256SUMS\`."
           fi
           # GitHub computes mergeability asynchronously after the PR opens.
           for attempt in 1 2 3 4 5 6; do
-            if gh pr merge "$branch" --rebase --delete-branch; then exit 0; fi
+            if gh pr merge "$branch" --merge --match-head-commit "$expected_head" --delete-branch; then exit 0; fi
             echo "merge attempt $attempt did not succeed; retrying"
             sleep 15
           done

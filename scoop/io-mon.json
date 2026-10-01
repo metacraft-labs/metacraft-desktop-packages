@@ -1,0 +1,17 @@
+{
+    "repository": "metacraft-labs/io-mon",
+    "app": "io-mon",
+    "description": "Capture filesystem and IPC dependencies of a command",
+    "homepage": "https://github.com/metacraft-labs/io-mon",
+    "license": "Apache-2.0",
+    "tag_prefix": "v",
+    "architecture": {
+        "64bit": {
+            "asset": "io-mon-$version-windows-x86_64.zip",
+            "extract_dir": "io-mon-$version-windows-x86_64"
+        }
+    },
+    "bin": [
+        "bin\\io-mon.exe"
+    ]
+}

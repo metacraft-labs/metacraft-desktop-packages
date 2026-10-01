@@ -1,0 +1,22 @@
+{
+    "repository": "metacraft-labs/gosti",
+    "app": "gosti",
+    "description": "Create and manage virtual machine guests",
+    "homepage": "https://github.com/metacraft-labs/gosti",
+    "license": "Apache-2.0",
+    "tag_prefix": "v",
+    "architecture": {
+        "64bit": {
+            "asset": "gosti-$version-windows-x86_64.zip",
+            "extract_dir": "gosti-$version-windows-x86_64"
+        },
+        "arm64": {
+            "asset": "gosti-$version-windows-aarch64.zip",
+            "extract_dir": "gosti-$version-windows-aarch64"
+        }
+    },
+    "bin": [
+        "bin\\gosti.exe",
+        "bin\\vm-harness.exe"
+    ]
+}
