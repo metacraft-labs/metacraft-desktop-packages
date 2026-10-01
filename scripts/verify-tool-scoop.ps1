@@ -56,8 +56,8 @@ foreach ($app in $products) {
     if ($LASTEXITCODE) { throw "$app Scoop installation failed" }
     $installed = (scoop prefix $app | Out-String).Trim()
     if ($LASTEXITCODE) { throw "$app install root unavailable" }
-    $receipt = Get-Content "$installed/install.json" -Raw | ConvertFrom-Json
-    $installedManifest = Get-Content "$installed/manifest.json" -Raw | ConvertFrom-Json
+    $receipt = Get-Content "$installed/scoop-install.json" -Raw | ConvertFrom-Json
+    $installedManifest = Get-Content "$installed/scoop-manifest.json" -Raw | ConvertFrom-Json
     if ($receipt.bucket -ne 'metacraft' -or $receipt.architecture -ne $Architecture -or $installedManifest.version -ne $version) {
         throw "$app installed receipt does not match the requested bucket, architecture and version"
     }
