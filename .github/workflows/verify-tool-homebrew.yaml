@@ -1,0 +1,69 @@
+name: Verify tool packages through Homebrew
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - homebrew/**
+      - scripts/*homebrew*.py
+      - scripts/setup-homebrew-verification.sh
+      - .github/workflows/verify-tool-homebrew.yaml
+      - .github/workflows/publish-release.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  choose:
+    uses: metacraft-labs/devops-modules/.github/workflows/reusable-choose-runner.yml@cd73eba732b9190499ec78e1e65b0dd784507440
+    with:
+      preferred: macos-26
+      fallback: '["self-hosted","macos","arm64"]'
+  install:
+    needs: choose
+    runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Prepare an isolated Homebrew prefix
+        run: bash scripts/setup-homebrew-verification.sh
+      - name: Install and verify released tool payloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LIVE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          # Bash 3.2 treats an empty array as unset under nounset.
+          args=(--brew "$HOMEBREW_VERIFY_BREW")
+          if [ "$LIVE" = true ]; then args+=(--live); fi
+          mkdir -p homebrew-logs
+          python3 scripts/verify-tool-homebrew.py "${args[@]}" 2>&1 | tee homebrew-logs/install.log
+      - name: Retain the installation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-install
+          path: homebrew-logs/
+          retention-days: 1
+      - name: Mirror the installation log
+        if: always()
+        continue-on-error: true
+        uses: metacraft-labs/metacraft-github-actions/mirror-artifacts-s3@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
+        with:
+          path: homebrew-logs
+          prefix: homebrew-install/${{ github.run_id }}
+          endpoint: ${{ vars.MCL_S3_ARTIFACTS_ENDPOINT }}
+          bucket: ${{ vars.MCL_S3_ARTIFACTS_BUCKET }}
+          region: ${{ vars.MCL_S3_ARTIFACTS_REGION }}
+          access-key-id: ${{ secrets.MCL_S3_ARTIFACTS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.MCL_S3_ARTIFACTS_SECRET_ACCESS_KEY }}
+      - name: Remove the private verification prefix
+        if: always() && env.HOMEBREW_VERIFY_ROOT != ''
+        run: |
+          case "$HOMEBREW_VERIFY_ROOT" in
+            "$HOME"/.cache/metacraft-homebrew-verification/*) rm -rf -- "$HOMEBREW_VERIFY_ROOT" ;;
+            *) echo '::error::unexpected verification directory'; exit 1 ;;
+          esac
