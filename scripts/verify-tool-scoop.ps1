@@ -33,6 +33,10 @@ if (-not $Live) {
 }
 scoop bucket add metacraft $bucketUrl
 if ($LASTEXITCODE) { throw 'bucket registration failed' }
+$registered = git -C "$env:USERPROFILE/scoop/buckets/metacraft" remote get-url origin
+if ($LASTEXITCODE -or ($registered -replace '\\', '/') -ne ($bucketUrl -replace '\\', '/')) {
+    throw "Unexpected Scoop bucket origin: $registered"
+}
 foreach ($app in $products) {
     $manifestPath = "$env:USERPROFILE/scoop/buckets/metacraft/bucket/$app.json"
     $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
@@ -52,6 +56,11 @@ foreach ($app in $products) {
     if ($LASTEXITCODE) { throw "$app Scoop installation failed" }
     $installed = (scoop prefix $app | Out-String).Trim()
     if ($LASTEXITCODE) { throw "$app install root unavailable" }
+    $receipt = Get-Content "$installed/install.json" -Raw | ConvertFrom-Json
+    $installedManifest = Get-Content "$installed/manifest.json" -Raw | ConvertFrom-Json
+    if ($receipt.bucket -ne 'metacraft' -or $receipt.architecture -ne $Architecture -or $installedManifest.version -ne $version) {
+        throw "$app installed receipt does not match the requested bucket, architecture and version"
+    }
     $entry = $manifest.architecture.$Architecture
     $asset = [System.IO.Path]::GetFileName(([Uri]$entry.url).AbsolutePath)
     python scripts/verify-installed-archive.py --archive "$release/$asset" --extract-dir $entry.extract_dir --installed-root $installed --architecture $Architecture
@@ -73,4 +82,4 @@ foreach ($app in $products) {
     Write-Host "PASS: $app $version installed from $bucketUrl as $Architecture"
 }
 scoop status
-if ($LASTEXITCODE) { throw 'Scoop update-source check failed' }
+if ($LASTEXITCODE) { throw 'Scoop status failed' }
