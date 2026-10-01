@@ -28,7 +28,7 @@ jobs:
       - name: Validate workflows and shell
         run: |
           nix shell nixpkgs#actionlint nixpkgs#shellcheck nixpkgs#python3 -c python3 scripts/check-publisher-workflows.py
-          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh scripts/validate-publish-request.sh scripts/publish-homebrew-tap.sh
+          nix shell nixpkgs#shellcheck -c shellcheck scripts/publish-into-repositories.sh scripts/verify-tool-release.sh scripts/validate-publish-request.sh scripts/publish-homebrew-tap.sh scripts/setup-homebrew-verification.sh
       - name: Test Homebrew publication with actual released archives
         env:
           GH_TOKEN: ${{ github.token }}

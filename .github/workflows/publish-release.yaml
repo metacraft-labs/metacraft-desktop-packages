@@ -35,10 +35,16 @@ concurrency:
   queue: max
 
 jobs:
+  choose-macos:
+    uses: metacraft-labs/devops-modules/.github/workflows/reusable-choose-runner.yml@cd73eba732b9190499ec78e1e65b0dd784507440
+    with:
+      preferred: macos-26
+      fallback: '["self-hosted","macos","arm64"]'
   homebrew:
     # Same serial queue as apt/RPM/Scoop. Terraform owns the tap's repository,
     # branches and protections; this job publishes only reviewed release data.
-    runs-on: macos-26
+    needs: choose-macos
+    runs-on: ${{ fromJSON(needs.choose-macos.outputs.runs_on) }}
     timeout-minutes: 30
     env:
       REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
@@ -83,6 +89,9 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.token.outputs.token }}
           path: published-tap
+      - name: Prepare an isolated Homebrew prefix
+        if: steps.config.outputs.path
+        run: bash scripts/setup-homebrew-verification.sh
       - name: Generate and verify the formula through Homebrew
         if: steps.config.outputs.path
         id: formula
@@ -98,7 +107,9 @@ jobs:
           gh release download "$TAG" -R "$REPOSITORY" -D incoming-macos -p "$asset" -p SHA256SUMS
           python3 scripts/homebrew-formula.py --config "$CONFIG" --tag "$TAG" \
             --release-dir incoming-macos --tap published-tap
-          python3 scripts/verify-tool-homebrew.py --tap-path published-tap --products "$app"
+          mkdir -p homebrew-logs
+          python3 scripts/verify-tool-homebrew.py --brew "$HOMEBREW_VERIFY_BREW" \
+            --tap-path published-tap --products "$app" 2>&1 | tee homebrew-logs/install.log
           echo "app=$app" >> "$GITHUB_OUTPUT"
       - name: Promote the verified formula through dev and stable
         if: steps.config.outputs.path
@@ -106,6 +117,32 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           APP: ${{ steps.formula.outputs.app }}
         run: bash scripts/publish-homebrew-tap.sh published-tap
+      - name: Retain the installation log
+        if: always() && steps.config.outputs.path
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-publication
+          path: homebrew-logs/
+          retention-days: 1
+      - name: Mirror the installation log
+        if: always() && steps.config.outputs.path
+        continue-on-error: true
+        uses: metacraft-labs/metacraft-github-actions/mirror-artifacts-s3@7f7bc6acd818fa88cde01a5985977e4c818c7eaa
+        with:
+          path: homebrew-logs
+          prefix: homebrew-publication/${{ github.run_id }}
+          endpoint: ${{ vars.MCL_S3_ARTIFACTS_ENDPOINT }}
+          bucket: ${{ vars.MCL_S3_ARTIFACTS_BUCKET }}
+          region: ${{ vars.MCL_S3_ARTIFACTS_REGION }}
+          access-key-id: ${{ secrets.MCL_S3_ARTIFACTS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.MCL_S3_ARTIFACTS_SECRET_ACCESS_KEY }}
+      - name: Remove the private verification prefix
+        if: always() && env.HOMEBREW_VERIFY_ROOT != ''
+        run: |
+          case "$HOMEBREW_VERIFY_ROOT" in
+            "$HOME"/.cache/metacraft-homebrew-verification/*) rm -rf -- "$HOMEBREW_VERIFY_ROOT" ;;
+            *) echo '::error::unexpected verification directory'; exit 1 ;;
+          esac
 
   choose:
     # Owner: zah. Follow-up: metacraft-specs/issues/
