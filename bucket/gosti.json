@@ -1,18 +1,18 @@
 {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Create and manage virtual machine guests",
     "homepage": "https://github.com/metacraft-labs/gosti",
     "license": "Apache-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/metacraft-labs/gosti/releases/download/v0.1.0/gosti-0.1.0-windows-x86_64.zip",
-            "hash": "034fce99ffa745be96b5041ab4966ecbf2acd517db5151b1bb910a3c46093b84",
-            "extract_dir": "gosti-0.1.0-windows-x86_64"
+            "url": "https://github.com/metacraft-labs/gosti/releases/download/v0.1.1/gosti-0.1.1-windows-x86_64.zip",
+            "hash": "d936a9859c383e5acd208708308694cf79ea34efe8b62aa7889408bc543fb55f",
+            "extract_dir": "gosti-0.1.1-windows-x86_64"
         },
         "arm64": {
-            "url": "https://github.com/metacraft-labs/gosti/releases/download/v0.1.0/gosti-0.1.0-windows-aarch64.zip",
-            "hash": "ef866c22311fe91fabec71dc50cfacb9c8a06a2653906344cfc275152ed3deaf",
-            "extract_dir": "gosti-0.1.0-windows-aarch64"
+            "url": "https://github.com/metacraft-labs/gosti/releases/download/v0.1.1/gosti-0.1.1-windows-aarch64.zip",
+            "hash": "4242b2b5f2f240665f95bdb48e02fddaac8aed9eb2a5f99364a64b7811cff0dd",
+            "extract_dir": "gosti-0.1.1-windows-aarch64"
         }
     },
     "bin": [
