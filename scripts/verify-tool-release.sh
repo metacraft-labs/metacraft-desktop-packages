@@ -10,11 +10,12 @@ case "$product" in
   *) echo 'unsupported product' >&2; exit 1 ;;
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-# Explicit first-release scope: do not infer support from whatever assets
-# happened to upload. Later versions require both architectures again.
+# Explicit release scope: Linux ARM64 remains deferred for 0.1.0 and 0.1.1
+# (shared release specification, 2026-10-02). Do not infer support from the
+# uploaded assets. Every other version requires both architectures.
 deb_architectures='amd64 arm64'
 rpm_architectures='x86_64 aarch64'
-if [ "$version" = 0.1.0 ]; then
+if [ "$version" = 0.1.0 ] || [ "$version" = 0.1.1 ]; then
   deb_architectures=amd64
   rpm_architectures=x86_64
 fi
