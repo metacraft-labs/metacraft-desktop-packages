@@ -10,12 +10,13 @@ case "$product" in
   *) echo 'unsupported product' >&2; exit 1 ;;
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-# Explicit release scope: Linux ARM64 remains deferred for 0.1.0 and 0.1.1
-# (shared release specification, 2026-10-02). Do not infer support from the
-# uploaded assets. Every other version requires both architectures.
+# Explicit release scope: Linux ARM64 remains deferred for 0.1.0 and 0.1.1,
+# plus Gosti 0.1.2 because its 0.1.1 is already published (shared release
+# specification, 2026-10-03). Do not infer support from uploaded assets.
+# Every other product/version pair requires both architectures.
 deb_architectures='amd64 arm64'
 rpm_architectures='x86_64 aarch64'
-if [ "$version" = 0.1.0 ] || [ "$version" = 0.1.1 ]; then
+if [ "$version" = 0.1.0 ] || [ "$version" = 0.1.1 ] || [ "$product:$version" = gosti:0.1.2 ]; then
   deb_architectures=amd64
   rpm_architectures=x86_64
 fi
