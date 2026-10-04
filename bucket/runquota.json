@@ -1,18 +1,18 @@
 {
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Host-wide resource admission and execution observations",
     "homepage": "https://github.com/metacraft-labs/runquota",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/metacraft-labs/runquota/releases/download/v0.1.2/runquota-0.1.2-windows-x86_64.zip",
-            "hash": "5ef525f54794933720066232c42fc5b2ab91a0e60d4f3c86157365c2fc513146",
-            "extract_dir": "runquota-0.1.2-windows-x86_64"
+            "url": "https://github.com/metacraft-labs/runquota/releases/download/v0.1.3/runquota-0.1.3-windows-x86_64.zip",
+            "hash": "d2ac712de4a4577119d170c07918f714281d7ec53e351fb7c022a000261d47f8",
+            "extract_dir": "runquota-0.1.3-windows-x86_64"
         },
         "arm64": {
-            "url": "https://github.com/metacraft-labs/runquota/releases/download/v0.1.2/runquota-0.1.2-windows-aarch64.zip",
-            "hash": "74ca97093ff896dce392ba0fd69689e9e6b58040f9fa1f57220b73d3fcd8c93e",
-            "extract_dir": "runquota-0.1.2-windows-aarch64"
+            "url": "https://github.com/metacraft-labs/runquota/releases/download/v0.1.3/runquota-0.1.3-windows-aarch64.zip",
+            "hash": "33b7775d3f94d9e75c43aa85cbf646a3c67dde2955e3305e33aaec820bd16a32",
+            "extract_dir": "runquota-0.1.3-windows-aarch64"
         }
     },
     "bin": [
