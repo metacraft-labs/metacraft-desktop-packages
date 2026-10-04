@@ -11,13 +11,14 @@ case "$product" in
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 # Explicit release scope: Linux ARM64 remains deferred for 0.1.0 and 0.1.1,
-# plus Gosti and RunQuota 0.1.2 because their 0.1.1 releases are already public
+# plus Gosti 0.1.2 and RunQuota 0.1.2/0.1.3 under their explicit patch-release scope
 # (shared release specification, 2026-10-04). Do not infer support from assets.
 # Every other product/version pair requires both architectures.
 deb_architectures='amd64 arm64'
 rpm_architectures='x86_64 aarch64'
 if [ "$version" = 0.1.0 ] || [ "$version" = 0.1.1 ] ||
-   [ "$product:$version" = gosti:0.1.2 ] || [ "$product:$version" = runquota:0.1.2 ]; then
+   [ "$product:$version" = gosti:0.1.2 ] || [ "$product:$version" = runquota:0.1.2 ] ||
+   [ "$product:$version" = runquota:0.1.3 ]; then
   deb_architectures=amd64
   rpm_architectures=x86_64
 fi
