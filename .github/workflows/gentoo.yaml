@@ -1,7 +1,7 @@
 name: Synchronise Gentoo overlay
 on:
   push:
-    branches: [main]
+    branches: [stable]
     
 jobs:
   gentoo:

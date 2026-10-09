@@ -1,10 +1,14 @@
 name: Arch Linux
 on:
   push:
-    branches: [main]
+    branches: [stable]
 jobs:
   arch:
-    runs-on: [self-hosted, linux, x64]
+    # `ephemeral`: a `container:` job needs the stock runner + dockerd of the
+    # ephemeral GARM image. The persistent NixOS runners' node externals are
+    # /nix/store symlinks, so JS actions cannot run inside the container there.
+    # nixos-runner-ok: NRH4 (the ephemeral GARM image ships dockerd and the stock runner)
+    runs-on: [self-hosted, linux, x64, ephemeral]
     container: archlinux
     steps:
       - name: Checkout Repository
