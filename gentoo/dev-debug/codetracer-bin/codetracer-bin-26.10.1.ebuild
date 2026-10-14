@@ -17,7 +17,7 @@ RESTRICT="strip" # Stripping ct will make it unable to be run
 
 BDEPEND=""
 DEPEND=""
-RDEPEND="sys-fs/fuse
+RDEPEND="sys-fs/fuse:0
 	dev-libs/openssl
 	sys-apps/xdg-desktop-portal
 "
