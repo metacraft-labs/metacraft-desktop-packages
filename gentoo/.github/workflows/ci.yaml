@@ -1,70 +1,61 @@
 name: Gentoo Desktop OpenRC AMD64
 
+# This file is mirrored into metacraft-labs/metacraft-overlay from
+# metacraft-desktop-packages/gentoo/ — edit it there, not in the overlay.
+
 on:
   push:
-    branches: [main]
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   gentoo-job:
-    runs-on: ubuntu-latest  # GitHub Actions host runner
-    permissions:
-      contents: write
+    # `ephemeral`: a `container:` job needs the stock runner + dockerd of the
+    # ephemeral GARM image. The persistent NixOS runners have no docker.
+    runs-on: [self-hosted, linux, x64, ephemeral]
+    timeout-minutes: 120
     container:
-      image: gentoo/stage3:desktop  # Pulls the Gentoo image from Docker Hub
+      image: gentoo/stage3:desktop
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Synchronise repo and install essentials 
+          persist-credentials: false
+      - name: Synchronise the Gentoo repository
+        run: emerge-webrsync || emerge --sync
+      - name: Register this checkout as the metacraft-overlay repository
         run: |
-          emerge --sync
-          emerge dev-vcs/git flaggie app-eselect/eselect-repository openssh sudo app-crypt/gnupg
-      - name: Recreate git repo structure
+          set -eu
+          mkdir -p /etc/portage/repos.conf
+          printf '[metacraft-overlay]\nlocation = %s\nauto-sync = no\n' "$GITHUB_WORKSPACE" \
+            > /etc/portage/repos.conf/metacraft-overlay.conf
+          chown -R portage:portage "$GITHUB_WORKSPACE" || true
+          portageq get_repo_path / metacraft-overlay
+      - name: Verify the Manifests match the published distfiles
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global --add safe.directory "$(realpath .)"
-          git init
-          git branch -m main
-          git remote add origin https://x-access-token:${{ secrets.CODETRACER_PUSH_GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
-          git fetch --all
-          git reset --hard origin/main
-      - name: Update manifests
-        run: |
-          useradd -K MAIL_DIR=/dev/null -m builder
-          chown -R builder $(pwd)
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          sudo -E -u builder env HOME=/home/builder git config --local user.name "github-actions[bot]"
-          sudo -E -u builder env HOME=/home/builder git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          sudo -E -u builder env HOME=/home/builder git config --local init.defaultBranch main
-
-          sudo -E -u builder git fetch --all
-          old="$(pwd)"
-          for manifest in $(find -iname "Manifest"); do
-          	man="$(realpath "${manifest}")"
-          	cd "$(dirname "${man}")"
-          	rm Manifest
-            ebuild *.ebuild clean digest
-          	cd "${old}"
+          set -eu
+          for ebuild in dev-debug/codetracer-bin/*.ebuild; do
+            echo "Checking ${ebuild}"
+            # `ebuild ... fetch` downloads every DIST entry and checks it against
+            # the committed Manifest; a stale or wrong digest fails here.
+            ebuild "$GITHUB_WORKSPACE/${ebuild}" fetch
           done
-          chown -R builder $(pwd)
-          sudo -E -u builder git remote set-url origin https://x-access-token:${{ secrets.CODETRACER_PUSH_GITHUB_TOKEN }}@github.com/metacraft-labs/metacraft-overlay
-          sudo -E -u builder sh -c "(git add . && git commit -m 'Update manifest' && git push origin HEAD:main) || echo 'Nothing to commit'"
-      - name: Sync and add repo   
+      - name: Install codetracer-bin
         run: |
-          eselect repository add metacraft-overlay git https://github.com/metacraft-labs/metacraft-overlay.git || exit
-          emerge --sync metacraft-overlay || exit
-      - name: Configure use flags
+          set -eu
+          emerge --getbinpkg --usepkg --quiet-build=y dev-debug/codetracer-bin::metacraft-overlay \
+            || emerge --quiet-build=y dev-debug/codetracer-bin::metacraft-overlay
+      - name: Smoke test
         run: |
-          flaggie raft +lz4
-          flaggie xdelta +lzma
-          flaggie squashfs-tools +lzma
-          flaggie libcap +static-libs
-      - name: Install applications
-        run: |
-          emerge codetracer-rr-backend-bin || exit
+          set -eu
+          # Containers have no /dev/fuse; let the AppImage extract itself instead.
+          APPIMAGE_EXTRACT_AND_RUN=1 ct --version
