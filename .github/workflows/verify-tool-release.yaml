@@ -28,7 +28,7 @@ jobs:
     runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install and verify from the live repositories
@@ -39,7 +39,7 @@ jobs:
         run: bash scripts/verify-tool-release.sh "$PRODUCT" "$VERSION"
       - name: Preserve installation evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: repository-verification-${{ inputs.product }}-${{ inputs.version }}
           path: test-logs/
