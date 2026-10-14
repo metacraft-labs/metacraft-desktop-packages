@@ -1,39 +1,94 @@
 name: Arch Linux
 on:
   push:
-    branches: [main]
+    branches: [dev]
+    paths:
+      - "arch/**"
+      - ".github/workflows/archlinux.yaml"
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Space-separated arch/ package directories to publish to the AUR"
+        required: true
+        default: "codetracer"
+
+concurrency:
+  group: aur-publish
+  cancel-in-progress: false
+
 jobs:
   arch:
-    runs-on: [self-hosted, linux, x64]
+    # `ephemeral`: a `container:` job needs the stock runner + dockerd of the
+    # ephemeral GARM image. The persistent NixOS runners have no docker, which is
+    # what failed run 30637970138 ("docker: command not found").
+    runs-on: [self-hosted, linux, x64, ephemeral]
+    timeout-minutes: 60
     container: archlinux
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select packages
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_PACKAGES: ${{ inputs.packages }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            packages="$INPUT_PACKAGES"
+          else
+            # Publish only the package directories this push changed.
+            packages="$(git diff --name-only "$BEFORE" "$AFTER" -- arch/ \
+              | awk -F/ 'NF > 2 { print $2 }' | sort -u | tr '\n' ' ')"
+          fi
+          for pkg in $packages; do
+            [ -f "arch/$pkg/PKGBUILD" ] || { echo "::error::no arch/$pkg/PKGBUILD"; exit 1; }
+          done
+          echo "Packages to publish: ${packages:-<none>}"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
       - name: Update repositories and install essentials
+        if: steps.select.outputs.packages != ''
         run: |
           pacman -Syyu --noconfirm
-          pacman -S --noconfirm git base-devel sudo xorg-xrandr openssh devtools pacman-contrib
+          pacman -S --noconfirm --needed git base-devel sudo xorg-xrandr openssh devtools pacman-contrib
           pacman --noconfirm --ask=4 -S iptables-nft
 
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builder $(pwd)
-      - name: Configure git
+          chown -R builder "$(pwd)"
+      - name: Configure git and SSH
+        if: steps.select.outputs.packages != ''
+        env:
+          AUR_SSH_KEY: ${{ secrets.CODETRACER_AUR_SSH_PRIVATE_KEY }}
         run: |
-          sudo -E -u builder env HOME=/home/builder git config --global user.name "github-actions"
-          sudo -E -u builder env HOME=/home/builder git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          sudo -E -u builder env HOME=/home/builder git config --global init.defaultBranch main
-          
-          sudo -E -u builder env HOME=/home/builder mkdir -p /home/builder/.ssh
-          echo "${{ secrets.CODETRACER_AUR_SSH_PRIVATE_KEY }}" | sudo -E -u builder tee /home/builder/.ssh/id_rsa > /dev/null
-          sudo -E -u builder env HOME=/home/builder chmod 600 /home/builder/.ssh/id_rsa
-          sudo -E -u builder env HOME=/home/builder ssh-keyscan -H aur.archlinux.org | sudo -E -u builder tee -a /home/builder/.ssh/known_hosts > /dev/null
-          
-          # Start a new SSH agent for builder
-          sudo -E -u builder env HOME=/home/builder bash -c 'eval $(ssh-agent -s) && ssh-add /home/builder/.ssh/id_rsa && ssh-add -l'
+          set -euo pipefail
+          as_builder() { sudo -u builder env HOME=/home/builder "$@"; }
+          as_builder git config --global user.name "github-actions"
+          as_builder git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Compile
+          as_builder mkdir -p /home/builder/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" | as_builder tee /home/builder/.ssh/aur > /dev/null
+          as_builder chmod 600 /home/builder/.ssh/aur
+          as_builder ssh-keyscan -t ed25519,ecdsa,rsa aur.archlinux.org | as_builder tee -a /home/builder/.ssh/known_hosts > /dev/null
+          printf 'Host aur.archlinux.org\n  User aur\n  IdentityFile ~/.ssh/aur\n  IdentitiesOnly yes\n' \
+            | as_builder tee /home/builder/.ssh/config > /dev/null
+          # Fail fast with a clear message if the key is not accepted by the AUR.
+          out="$(as_builder ssh -o BatchMode=yes aur@aur.archlinux.org help 2>&1 || true)"
+          echo "$out" | head -5
+          if echo "$out" | grep -qi "permission denied"; then
+            echo "::error::CODETRACER_AUR_SSH_PRIVATE_KEY was rejected by aur.archlinux.org"
+            exit 1
+          fi
+      - name: Build and publish
+        if: steps.select.outputs.packages != ''
+        env:
+          PACKAGES: ${{ steps.select.outputs.packages }}
         run: |
-          sudo -E -u builder env HOME=/home/builder bash -c "cd arch/ && bash run.sh deploy"
+          # shellcheck disable=SC2086
+          sudo -u builder env HOME=/home/builder bash arch/run.sh deploy $PACKAGES
