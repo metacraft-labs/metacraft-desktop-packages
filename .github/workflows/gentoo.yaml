@@ -61,9 +61,19 @@ jobs:
           git clone --branch "$OVERLAY_BRANCH" \
             "https://x-access-token:${TOKEN}@github.com/${OVERLAY}" "$dst"
 
-          # The overlay is an exact mirror of gentoo/: replace the whole tree.
+          # The overlay is an exact mirror of gentoo/, except its workflow files:
+          # the CI GitHub App has no `workflows` permission, so those keep the
+          # overlay's own copy and change there through a regular pull request.
+          keep="$RUNNER_TEMP/overlay-workflows"
+          rm -rf "$keep"
+          if [ -d "$dst/.github/workflows" ]; then cp -a "$dst/.github/workflows" "$keep"; fi
           find "$dst" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$src"/. "$dst"/
+          rm -rf "$dst/.github/workflows"
+          if [ -d "$keep" ]; then cp -a "$keep" "$dst/.github/workflows"; fi
+          if ! diff -r "$src/.github/workflows" "$dst/.github/workflows" > /dev/null 2>&1; then
+            echo "::warning::gentoo/.github/workflows differs from ${OVERLAY}@${OVERLAY_BRANCH}; land the workflow change in the overlay with a pull request"
+          fi
 
           cd "$dst"
           git add -A
