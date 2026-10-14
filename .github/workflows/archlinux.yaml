@@ -25,12 +25,21 @@ jobs:
     timeout-minutes: 60
     container: archlinux
     steps:
+      - name: Update repositories and install essentials
+        run: |
+          pacman -Syyu --noconfirm
+          pacman -S --noconfirm --needed git base-devel sudo xorg-xrandr openssh devtools pacman-contrib
+          pacman --noconfirm --ask=4 -S iptables-nft
+
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
       - name: Checkout Repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Select packages
+        shell: bash
         id: select
         env:
           EVENT: ${{ github.event_name }}
@@ -52,16 +61,7 @@ jobs:
           done
           echo "Packages to publish: ${packages:-<none>}"
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
-      - name: Update repositories and install essentials
-        if: steps.select.outputs.packages != ''
-        run: |
-          pacman -Syyu --noconfirm
-          pacman -S --noconfirm --needed git base-devel sudo xorg-xrandr openssh devtools pacman-contrib
-          pacman --noconfirm --ask=4 -S iptables-nft
-
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builder "$(pwd)"
+          chown -R builder "$GITHUB_WORKSPACE"
       - name: Configure git and SSH
         if: steps.select.outputs.packages != ''
         env:
