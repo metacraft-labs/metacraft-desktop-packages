@@ -23,12 +23,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: "Import bot's GPG key for signing commits"
         id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.CODETRACER_AUR_GPG_PRIVATE_KEY_PASS }}
@@ -80,7 +80,7 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
       - name: Land the sync branch on the overlay mainline
         if: steps.sync.outputs.branch != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           BRANCH: ${{ steps.sync.outputs.branch }}
           SOURCE_SHA: ${{ github.sha }}
