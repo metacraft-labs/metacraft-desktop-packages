@@ -1,13 +1,13 @@
 {
-    "version": "0.2.20",
+    "version": "0.2.23",
     "description": "Reproducible build system with automatic dependency discovery and distributed execution",
     "homepage": "https://reprobuild.com",
     "license": "Apache-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/metacraft-labs/reprobuild/releases/download/v0.2.20/reprobuild-0.2.20-windows-x86_64.zip",
-            "hash": "267728228a209bd101e14a9ccde950ef03c93f782a583905a758a21f40b72cb4",
-            "extract_dir": "reprobuild-0.2.20-windows-x86_64"
+            "url": "https://github.com/metacraft-labs/reprobuild/releases/download/v0.2.23/reprobuild-0.2.23-windows-x86_64.zip",
+            "hash": "83c21f613b9a4ac90ce61c964a723019fcd0e40cf8bbed46ca019cd5be39288d",
+            "extract_dir": "reprobuild-0.2.23-windows-x86_64"
         }
     },
     "bin": [
