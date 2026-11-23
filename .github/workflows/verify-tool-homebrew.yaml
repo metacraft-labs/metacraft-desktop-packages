@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ fromJSON(needs.choose.outputs.runs_on) }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Prepare an isolated Homebrew prefix
@@ -43,7 +43,7 @@ jobs:
           python3 scripts/verify-tool-homebrew.py "${args[@]}" 2>&1 | tee homebrew-logs/install.log
       - name: Retain the installation log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: homebrew-install
           path: homebrew-logs/
