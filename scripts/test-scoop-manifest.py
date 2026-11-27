@@ -28,10 +28,11 @@ def check(condition, message):
         failures.append(message)
 
 
-def run(config, tag, release, bucket):
+def run(config, tag, release, bucket, url_base=None):
+    extra = ["--url-base", url_base] if url_base is not None else []
     result = subprocess.run([sys.executable, str(generator), "--config", str(config),
                              "--tag", tag, "--release-dir", str(release),
-                             "--bucket", str(bucket)], text=True, capture_output=True)
+                             "--bucket", str(bucket)] + extra, text=True, capture_output=True)
     return result.returncode, (result.stdout + result.stderr).strip()
 
 
@@ -128,6 +129,22 @@ def fixture_tests(tmp):
     code, out = run(config, "2.0.0", empty, bucket)
     check(code != 0 and "does not start with" in out, f"a tag without the prefix is refused ({out})")
 
+    pin = "https://github.com/metacraft-labs/actions/releases/download/pin-" + "a" * 40
+    rel6, _, digest6 = release(tmp, "demo", "4.0.0", good)
+    code, out = run(config, "v4.0.0", rel6, tmp / "pin-bucket", url_base=pin)
+    pinned = json.loads((tmp / "pin-bucket" / "demo.json").read_text()) if code == 0 else {}
+    arch6 = pinned.get("architecture", {}).get("64bit", {})
+    check(code == 0 and arch6.get("url") == f"{pin}/demo-4.0.0-windows-x86_64.zip"
+          and arch6.get("hash") == digest6,
+          f"--url-base writes URL/<asset> with the archive's SHA256SUMS hash ({out})")
+    check(pinned.get("autoupdate", {}).get("architecture", {}).get("64bit", {}).get("url", "")
+          .startswith("https://github.com/metacraft-labs/demo/releases/download/v$version/"),
+          "--url-base leaves autoupdate on the product's releases")
+    for bad_base in (pin + "/", "http://example.invalid/x", "https://example.invalid/x?y=1"):
+        code, out = run(config, "v4.0.0", rel6, tmp / "bad-base-bucket", url_base=bad_base)
+        check(code != 0 and "--url-base" in out and not (tmp / "bad-base-bucket").exists(),
+              f"--url-base {bad_base} is refused and nothing is written ({out})")
+
     corrupt = tmp / "rel-corrupt"
     corrupt.mkdir()
     bad = corrupt / "demo-3.0.0-windows-x86_64.zip"
@@ -160,7 +177,7 @@ def config_tests():
               f"bucket/{path.name} parses and has version, architecture and bin")
 
 
-def real_release_test(tmp, config, release_dir):
+def real_release_test(tmp, config, release_dir, url_base=None):
     bucket = tmp / "real-bucket"
     config_data = json.loads(config.read_text())
     zips = sorted(release_dir.glob("*-windows-*.zip"))
@@ -177,9 +194,13 @@ def real_release_test(tmp, config, release_dir):
         return
     version = versions[0]
     tag = config_data.get("tag_prefix", "") + version
-    code, out = run(config, tag, release_dir, bucket)
+    code, out = run(config, tag, release_dir, bucket, url_base)
     check(code == 0 and "updated" in out, f"real {zips[0].name} produces a manifest ({out})")
-    code, out = run(config, tag, release_dir, bucket)
+    if url_base is not None and code == 0:
+        url = json.loads((bucket / f"{config_data['app']}.json").read_text())[
+            "architecture"]["64bit"]["url"]
+        check(url == f"{url_base}/{zips[0].name}", f"real manifest downloads from --url-base ({url})")
+    code, out = run(config, tag, release_dir, bucket, url_base)
     check(code == 0 and "unchanged" in out, f"real release re-run is a no-op ({out})")
     tampered = tmp / "real-tampered"
     shutil.copytree(release_dir, tampered)
@@ -197,13 +218,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-dir", type=Path)
     parser.add_argument("--config", type=Path, default=root / "scoop/reprobuild.json")
+    parser.add_argument("--url-base", help="pass --url-base for the --release-dir test")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="scoop-test-") as tmp:
         tmp = Path(tmp)
         fixture_tests(tmp)
         config_tests()
         if args.release_dir:
-            real_release_test(tmp, args.config, args.release_dir)
+            real_release_test(tmp, args.config, args.release_dir, args.url_base)
     print(f"{len(failures)} failure(s)")
     return 1 if failures else 0
 

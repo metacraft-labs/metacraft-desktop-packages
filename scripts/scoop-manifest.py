@@ -2,7 +2,7 @@
 """Write or refresh one product's manifest in the organisation's Scoop bucket.
 
     scoop-manifest.py --config scoop/<product>.json --tag TAG \
-        --release-dir DIR --bucket bucket/
+        --release-dir DIR --bucket bucket/ [--url-base URL]
 
 --release-dir holds what was downloaded from the product's GitHub Release: its
 Windows archive(s) and SHA256SUMS. Nothing else is trusted: an archive must be
@@ -18,6 +18,14 @@ The config (scoop/<product>.json) is the product's Scoop description:
     tag_prefix   what precedes the version in the tag ("v" for v1.2.3)
     architecture {"64bit": {"asset": "...$version...", "extract_dir": "..."}}
     bin          paths inside extract_dir to shim onto PATH (Scoop's `bin`)
+
+--url-base points the manifest's download URLs somewhere other than the
+product's own release for TAG: each archive's url becomes URL/<asset>. It is for
+a throwaway test bucket built from a bundle that is not a product release, such
+as the organisation Reprobuild pin's prerelease pin-<rev> in
+metacraft-github-actions. The hash is still the archive's own, checked against
+--release-dir's SHA256SUMS, so Scoop verifies the download against the same
+sums. checkver and autoupdate keep describing the product's releases.
 
 Outcomes, printed as the last line (`scoop-manifest: <outcome> ...`):
 
@@ -87,9 +95,10 @@ def check_layout(archive, extract_dir, bins):
             raise Refused(f"{archive.name} does not contain bin {target} (looked for {member})")
 
 
-def build(config, version, release_dir, sums):
+def build(config, version, release_dir, sums, url_base=None):
     repo = config["repository"]
     tag = config.get("tag_prefix", "") + version
+    download = url_base or f"https://github.com/{repo}/releases/download/{tag}"
     architecture, autoupdate_arch, present, missing = {}, {}, [], []
     for arch, spec in config["architecture"].items():
         if arch not in SCOOP_ARCHES:
@@ -112,7 +121,7 @@ def build(config, version, release_dir, sums):
             raise Refused(f"{asset} has sha256 {actual}, SHA256SUMS says {', '.join(sorted(listed))}")
         extract_dir = spec.get("extract_dir", "").replace("$version", version)
         check_layout(path, extract_dir, config["bin"])
-        entry = {"url": f"https://github.com/{repo}/releases/download/{tag}/{asset}",
+        entry = {"url": f"{download}/{asset}",
                  "hash": actual}
         auto = {"url": f"https://github.com/{repo}/releases/download/"
                        f"{config.get('tag_prefix', '')}$version/{spec['asset']}"}
@@ -146,7 +155,9 @@ def render(manifest):
     return json.dumps(manifest, indent=4, ensure_ascii=False) + "\n"
 
 
-def update(config_path, tag, release_dir, bucket):
+def update(config_path, tag, release_dir, bucket, url_base=None):
+    if url_base is not None and not re.fullmatch(r"https://[^\s?#]+[^/\s?#]", url_base):
+        raise Refused(f"--url-base {url_base!r} is not an https URL without a trailing slash")
     config = json.loads(config_path.read_text())
     prefix = config.get("tag_prefix", "")
     if not tag.startswith(prefix):
@@ -168,7 +179,7 @@ def update(config_path, tag, release_dir, bucket):
         return "skipped", "release has no Windows archive for Scoop"
     if not sums_path.is_file():
         raise Refused("release has no SHA256SUMS")
-    manifest, why = build(config, version, release_dir, read_sums(sums_path))
+    manifest, why = build(config, version, release_dir, read_sums(sums_path), url_base)
     if manifest is None:
         return "skipped", why
 
@@ -193,9 +204,12 @@ def main():
     parser.add_argument("--tag", required=True)
     parser.add_argument("--release-dir", type=Path, required=True)
     parser.add_argument("--bucket", type=Path, required=True)
+    parser.add_argument("--url-base",
+                        help="download the archives from URL/<asset> instead of the release for --tag")
     args = parser.parse_args()
     try:
-        outcome, detail = update(args.config, args.tag, args.release_dir, args.bucket)
+        outcome, detail = update(args.config, args.tag, args.release_dir, args.bucket,
+                                 args.url_base)
     except Refused as error:
         print(f"scoop-manifest: refused: {error}", file=sys.stderr)
         return 1
