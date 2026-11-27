@@ -130,14 +130,17 @@ jobs:
           $manifest = Get-Content "$env:USERPROFILE\scoop\buckets\metacraft\bucket\$env:APP.json" -Raw | ConvertFrom-Json
           "EXPECTED_VERSION=$($manifest.version)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           if ($env:EXPECTED_HASH) {
-            # Scoop refuses a download whose sha256 is not the manifest's, so a
-            # completed install means the archive matched; confirm Scoop
-            # installed the manifest the pin's SHA256SUMS hash was written into.
-            $installed = Get-Content "$env:USERPROFILE\scoop\apps\$env:APP\current\manifest.json" -Raw | ConvertFrom-Json
-            if ($installed.architecture.'64bit'.hash -ne $env:EXPECTED_HASH) {
-              throw "installed manifest hash $($installed.architecture.'64bit'.hash), expected $env:EXPECTED_HASH"
+            # Scoop refuses a download whose sha256 is not the manifest's. Check
+            # that the manifest it installed from carries the pin's SHA256SUMS
+            # hash, and hash the archive Scoop downloaded and cached.
+            if ($manifest.architecture.'64bit'.hash -ne $env:EXPECTED_HASH) {
+              throw "bucket manifest hash $($manifest.architecture.'64bit'.hash), expected $env:EXPECTED_HASH"
             }
-            Write-Host "OK: Scoop installed the archive with sha256 $env:EXPECTED_HASH"
+            $cached = @(Get-ChildItem "$env:USERPROFILE\scoop\cache" -File -Filter "$env:APP#$($manifest.version)#*")
+            if ($cached.Count -ne 1) { throw "expected one cached $env:APP $($manifest.version) download, found $($cached.Count)" }
+            $actual = (Get-FileHash -Algorithm SHA256 $cached[0].FullName).Hash.ToLowerInvariant()
+            if ($actual -ne $env:EXPECTED_HASH) { throw "Scoop downloaded $($cached[0].Name) with sha256 $actual, expected $env:EXPECTED_HASH" }
+            Write-Host "OK: Scoop installed $($cached[0].Name), sha256 $actual, the pin's SHA256SUMS hash"
           }
 
       - name: The installed command reports the manifest version
