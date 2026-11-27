@@ -45,9 +45,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # A real release too: its Windows zip, as the publisher downloads it.
-          gh release download v0.2.5 -R metacraft-labs/reprobuild -D reprobuild-release \
-            -p 'reprobuild-*-windows-x86_64.zip' -p SHA256SUMS
+          # A real Reprobuild Windows bundle too, with its SHA256SUMS: the
+          # organisation pin's (pins/reprobuild.json in
+          # metacraft-github-actions, at the `dev` its actions are used from).
+          # The `pins` workflow there publishes the pinned commit's bundle as
+          # the prerelease pin-<rev>, packaged by reprobuild's own release
+          # script, so it has the release archive's name and layout. Reading
+          # the pin keeps this repository from naming a Reprobuild revision.
+          pin_rev="$(gh api -H 'Accept: application/vnd.github.raw' \
+            'repos/metacraft-labs/metacraft-github-actions/contents/pins/reprobuild.json?ref=dev' --jq .rev)"
+          pin_version="$(gh api -H 'Accept: application/vnd.github.raw' \
+            'repos/metacraft-labs/metacraft-github-actions/contents/pins/reprobuild.json?ref=dev' --jq .version)"
+          [[ "$pin_rev" =~ ^[0-9a-f]{40}$ ]]
+          echo "Reprobuild pin ${pin_version} (${pin_rev})"
+          gh release download "pin-${pin_rev}" -R metacraft-labs/metacraft-github-actions -D reprobuild-release \
+            -p "reprobuild-${pin_version}-windows-x86_64.zip" -p SHA256SUMS
           nix shell nixpkgs#python3 -c python3 scripts/test-scoop-manifest.py \
             --release-dir reprobuild-release --config scoop/reprobuild.json
       - name: Test real archives and repository signatures
